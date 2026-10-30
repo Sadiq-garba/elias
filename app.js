@@ -189,7 +189,7 @@ $("#txnForm").addEventListener("submit", async (e) => {
   const fd = new FormData(form);
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await db.auth.getUser();
   if (!user) {
     toast("Please log in first", "error");
     return;
@@ -364,7 +364,7 @@ $("#dashboardDate").addEventListener("change", loadDashboard);
 (async () => {
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await db.auth.getUser();
   if (!user) {
     const { error } = await supabase.auth.signInAnonymously();
     if (error) toast("Login failed: " + error.message, "error");
