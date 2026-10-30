@@ -2,7 +2,7 @@
 const SUPABASE_URL = "https://klkqhllylooezrohnpdh.supabase.co";
 const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtsa3FobGx5bG9vZXpyb2hucGRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMzOTQ1MzksImV4cCI6MjEwODk3MDUzOX0.vRQkIr2EmGN3K20bLvgWlQShyUsizIVzG3r-VugIBTc";
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const CURRENCY = "₦";
 const $ = (s) => document.querySelector(s);
@@ -252,30 +252,49 @@ $("#closeReceipt").addEventListener("click", () =>
 
 // Generate PDF (using pdf-gen-js)
 async function generateReceiptPDF(txn) {
-  const { PDFGenerator, Templates } = window.pdfGenJs || {};
-  if (!PDFGenerator) throw new Error("pdf-gen-js not loaded");
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
 
-  const pdf = new PDFGenerator({ pageSize: "A4" });
-  Templates.register(pdf);
-  await pdf.useTemplate("receipt", {
-    storeName: "My Store",
-    receiptNumber: txn.id.slice(0, 8),
-    dateTime:
-      txn.transaction_date +
-      " " +
-      new Date(txn.created_at).toLocaleTimeString(),
-    items: [
-      {
-        name: txn.product_name,
-        quantity: txn.quantity,
-        price: txn.selling_price,
-      },
-    ],
-    total: txn.total_amount,
-    paymentMethod: "Cash",
-    thankYouMessage: "Thank you!",
-  });
-  return await pdf.generate("receipt.pdf"); // returns Blob
+  doc.setFontSize(22);
+  doc.setFont("helvetica", "bold");
+  doc.text("LEDGERLY STORE", 40, 60);
+
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(120);
+  doc.text("Sales Receipt", 40, 82);
+  doc.text("Receipt #: " + txn.id.slice(0, 8), 40, 98);
+  doc.text("Date: " + txn.transaction_date, 40, 114);
+
+  doc.setDrawColor(220);
+  doc.line(40, 130, 555, 130);
+
+  doc.setTextColor(0);
+  doc.setFontSize(12);
+  doc.text("Item", 40, 154);
+  doc.text("Qty", 350, 154);
+  doc.text("Price", 420, 154);
+  doc.text("Total", 490, 154);
+
+  doc.setFontSize(11);
+  doc.text(String(txn.product_name), 40, 178);
+  doc.text(String(txn.quantity), 350, 178);
+  doc.text(Number(txn.selling_price).toFixed(2), 420, 178);
+  doc.text(Number(txn.total_amount).toFixed(2), 490, 178);
+
+  doc.line(40, 200, 555, 200);
+
+  doc.setFontSize(13);
+  doc.setFont("helvetica", "bold");
+  doc.text("Total:", 420, 224);
+  doc.text("NGN " + Number(txn.total_amount).toLocaleString(), 490, 224);
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(120);
+  doc.text("Thank you for your purchase!", 40, 270);
+
+  return doc.output("blob");
 }
 
 async function uploadReceiptAndGetUrl(txn) {

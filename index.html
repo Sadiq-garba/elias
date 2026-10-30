@@ -1,117 +1,179 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Ledgerly — Sales Tracker</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-  <!-- Sidebar -->
-  <aside class="sidebar">
-    <div class="brand"><div class="brand-mark">L</div><span>Ledgerly</span></div>
-    <nav>
-      <a href="#" class="nav-item active" data-view="dashboard">📊 Dashboard</a>
-      <a href="#" class="nav-item" data-view="transactions">🧾 Transactions</a>
-      <a href="#" class="nav-item" data-view="reports">📈 Reports</a>
-    </nav>
-  </aside>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ledgerly — Sales Tracker</title>
+    <link rel="icon" href="data:," />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">L</div>
+        <span>Ledgerly</span>
+      </div>
+      <nav>
+        <a href="#" class="nav-item active" data-view="dashboard"
+          >📊 Dashboard</a
+        >
+        <a href="#" class="nav-item" data-view="transactions"
+          >🧾 Transactions</a
+        >
+        <a href="#" class="nav-item" data-view="reports">📈 Reports</a>
+      </nav>
+    </aside>
 
-  <!-- Main -->
-  <main class="main">
-    <header class="topbar">
-      <div>
-        <h1 id="pageTitle">Dashboard</h1>
-        <p class="subtitle" id="pageSubtitle">Your business at a glance</p>
-      </div>
-      <div class="topbar-actions">
-        <input type="date" id="dashboardDate"/>
-        <button class="btn btn-primary" id="openNewTxn">+ New Sale</button>
-      </div>
-    </header>
+    <!-- Main -->
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1 id="pageTitle">Dashboard</h1>
+          <p class="subtitle" id="pageSubtitle">Your business at a glance</p>
+        </div>
+        <div class="topbar-actions">
+          <input type="date" id="dashboardDate" />
+          <button class="btn btn-primary" id="openNewTxn">+ New Sale</button>
+        </div>
+      </header>
 
-    <!-- Dashboard view -->
-    <section class="view" id="view-dashboard">
-      <div class="stat-grid">
-        <div class="stat-card blue"><span>Today's Sales</span><strong id="statSales">₦0</strong></div>
-        <div class="stat-card green"><span>Today's Profit</span><strong id="statProfit">₦0</strong></div>
-        <div class="stat-card purple"><span>Month Sales</span><strong id="statMonthSales">₦0</strong></div>
-        <div class="stat-card orange"><span>Month Profit</span><strong id="statMonthProfit">₦0</strong></div>
-      </div>
-      <div class="panel">
-        <h2>Recent Transactions</h2>
-        <table class="data-table" id="recentTable">
-          <thead><tr><th>Product</th><th>Customer</th><th>Amount</th><th>Profit</th><th>Action</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </section>
+      <!-- Dashboard view -->
+      <section class="view" id="view-dashboard">
+        <div class="stat-grid">
+          <div class="stat-card blue">
+            <span>Today's Sales</span><strong id="statSales">₦0</strong>
+          </div>
+          <div class="stat-card green">
+            <span>Today's Profit</span><strong id="statProfit">₦0</strong>
+          </div>
+          <div class="stat-card purple">
+            <span>Month Sales</span><strong id="statMonthSales">₦0</strong>
+          </div>
+          <div class="stat-card orange">
+            <span>Month Profit</span><strong id="statMonthProfit">₦0</strong>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Recent Transactions</h2>
+          <table class="data-table" id="recentTable">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Customer</th>
+                <th>Amount</th>
+                <th>Profit</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
 
-    <!-- Transactions view -->
-    <section class="view hidden" id="view-transactions">
-      <div class="filter-bar">
-        <input type="text" id="txnSearch" placeholder="Search product or customer..."/>
-        <input type="date" id="txnDate"/>
-      </div>
-      <div class="panel">
-        <table class="data-table" id="txnTable">
-          <thead><tr><th>Date</th><th>Product</th><th>Customer</th><th>Amount</th><th>Profit</th><th>Action</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </section>
+      <!-- Transactions view -->
+      <section class="view hidden" id="view-transactions">
+        <div class="filter-bar">
+          <input
+            type="text"
+            id="txnSearch"
+            placeholder="Search product or customer..."
+          />
+          <input type="date" id="txnDate" />
+        </div>
+        <div class="panel">
+          <table class="data-table" id="txnTable">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Product</th>
+                <th>Customer</th>
+                <th>Amount</th>
+                <th>Profit</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
 
-    <!-- Reports view -->
-    <section class="view hidden" id="view-reports">
-      <div class="panel">
-        <h2>Monthly Summary</h2>
-        <div class="report-grid">
-          <div><span>Sales</span><strong id="rSales">₦0</strong></div>
-          <div><span>Profit</span><strong id="rProfit">₦0</strong></div>
-          <div><span>Transactions</span><strong id="rCount">0</strong></div>
+      <!-- Reports view -->
+      <section class="view hidden" id="view-reports">
+        <div class="panel">
+          <h2>Monthly Summary</h2>
+          <div class="report-grid">
+            <div><span>Sales</span><strong id="rSales">₦0</strong></div>
+            <div><span>Profit</span><strong id="rProfit">₦0</strong></div>
+            <div><span>Transactions</span><strong id="rCount">0</strong></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- New transaction modal -->
+    <div class="modal-backdrop hidden" id="txnModal">
+      <div class="modal">
+        <div class="modal-head">
+          <h2>Record Sale</h2>
+          <button id="closeModal">✕</button>
+        </div>
+        <form id="txnForm" class="modal-body">
+          <label>Product <input name="product_name" required /></label>
+          <label
+            >Quantity
+            <input name="quantity" type="number" value="1" min="1" required
+          /></label>
+          <label
+            >Cost Price
+            <input name="cost_price" type="number" step="0.01" required
+          /></label>
+          <label
+            >Selling Price
+            <input name="selling_price" type="number" step="0.01" required
+          /></label>
+          <label>Customer Name <input name="customer_name" /></label>
+          <label
+            >WhatsApp <input name="customer_phone" placeholder="2348012345678"
+          /></label>
+          <label>Email <input name="customer_email" type="email" /></label>
+          <div class="live-total">
+            Profit: <strong id="liveProfit">₦0</strong>
+          </div>
+          <div class="modal-foot">
+            <button type="button" id="cancelTxn">Cancel</button>
+            <button type="submit" class="btn-primary">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Receipt modal -->
+    <div class="modal-backdrop hidden" id="receiptModal">
+      <div class="modal">
+        <div class="modal-head">
+          <h2>Send Receipt</h2>
+          <button id="closeReceipt">✕</button>
+        </div>
+        <div class="modal-body">
+          <p id="receiptSummary"></p>
+          <button id="sendWhatsapp" class="send-btn">
+            💬 Send via WhatsApp
+          </button>
+          <button id="sendEmail" class="send-btn">📧 Send via Email</button>
         </div>
       </div>
-    </section>
-  </main>
-
-  <!-- New transaction modal -->
-  <div class="modal-backdrop hidden" id="txnModal">
-    <div class="modal">
-      <div class="modal-head"><h2>Record Sale</h2><button id="closeModal">✕</button></div>
-      <form id="txnForm" class="modal-body">
-        <label>Product <input name="product_name" required/></label>
-        <label>Quantity <input name="quantity" type="number" value="1" min="1" required/></label>
-        <label>Cost Price <input name="cost_price" type="number" step="0.01" required/></label>
-        <label>Selling Price <input name="selling_price" type="number" step="0.01" required/></label>
-        <label>Customer Name <input name="customer_name"/></label>
-        <label>WhatsApp <input name="customer_phone" placeholder="2348012345678"/></label>
-        <label>Email <input name="customer_email" type="email"/></label>
-        <div class="live-total">Profit: <strong id="liveProfit">₦0</strong></div>
-        <div class="modal-foot">
-          <button type="button" id="cancelTxn">Cancel</button>
-          <button type="submit" class="btn-primary">Save</button>
-        </div>
-      </form>
     </div>
-  </div>
 
-  <!-- Receipt modal -->
-  <div class="modal-backdrop hidden" id="receiptModal">
-    <div class="modal">
-      <div class="modal-head"><h2>Send Receipt</h2><button id="closeReceipt">✕</button></div>
-      <div class="modal-body">
-        <p id="receiptSummary"></p>
-        <button id="sendWhatsapp" class="send-btn">💬 Send via WhatsApp</button>
-        <button id="sendEmail" class="send-btn">📧 Send via Email</button>
-      </div>
-    </div>
-  </div>
+    <div id="toastStack"></div>
 
-  <div id="toastStack"></div>
-
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/pdf-gen-js/dist/index.js"></script>
-  <script src="app.js"></script>
-</body>
+    <!-- Load order matters: Supabase first, then jsPDF, then your app -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="app.js"></script>
+  </body>
 </html>
