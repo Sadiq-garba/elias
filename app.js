@@ -366,7 +366,7 @@ $("#dashboardDate").addEventListener("change", loadDashboard);
     data: { user },
   } = await db.auth.getUser();
   if (!user) {
-    const { error } = await supabase.auth.signInAnonymously();
+    const { error } = await db.auth.signInAnonymously();
     if (error) toast("Login failed: " + error.message, "error");
   }
   loadDashboard();
