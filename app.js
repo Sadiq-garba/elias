@@ -577,21 +577,26 @@ $("#sendEmail").addEventListener("click", async () => {
     toast("Customer email missing", "error");
     return;
   }
+
   try {
-    toast("Generating receipt...");
+    toast("Generating receipt link...");
+    // 1. Upload the PDF to Supabase Storage to get the link
     const url = await uploadReceiptAndGetUrl(currentReceiptTxn);
-    const { error } = await db.functions.invoke("send-email", {
-      body: {
-        to: currentReceiptTxn.customer_email,
-        name: currentReceiptTxn.customer_name || "Customer",
-        receiptUrl: url,
-      },
-    });
-    if (error) throw error;
-    toast("Receipt sent to email!");
+
+    // 2. Prepare the email details
+    const subject = `Your Receipt from Ledgerly - #${currentReceiptTxn.id.slice(0, 8)}`;
+    const body = `Hello ${currentReceiptTxn.customer_name || "Customer"},\n\nThank you for your purchase!\n\nItem: ${currentReceiptTxn.product_name}\nQuantity: ${currentReceiptTxn.quantity}\nTotal: ₦${Number(currentReceiptTxn.total_amount).toLocaleString()}\n\nYou can download your PDF receipt here:\n${url}\n\nBest regards,\nLedgerly Store`;
+
+    // 3. Create the mailto link and open it
+    const mailtoLink = `mailto:${currentReceiptTxn.customer_email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+    window.location.href = mailtoLink;
+
+    toast("Opening email app... Click 'Send' to deliver.");
     $("#receiptModal").classList.add("hidden");
   } catch (err) {
-    toast(err.message, "error");
+    console.error("Email Error:", err);
+    toast("Upload failed: " + err.message, "error");
   }
 });
 
