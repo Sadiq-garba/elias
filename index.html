@@ -72,9 +72,14 @@
 
       <main class="main">
         <header class="topbar">
-          <div>
-            <h1 id="pageTitle">Dashboard</h1>
-            <p class="subtitle" id="pageSubtitle">Your business at a glance</p>
+          <div class="topbar-left">
+            <button id="menuToggle" class="menu-toggle">☰</button>
+            <div>
+              <h1 id="pageTitle">Dashboard</h1>
+              <p class="subtitle" id="pageSubtitle">
+                Your business at a glance
+              </p>
+            </div>
           </div>
           <div class="topbar-actions">
             <input type="date" id="dashboardDate" />
@@ -100,18 +105,20 @@
           </div>
           <div class="panel">
             <h2>Recent Transactions</h2>
-            <table class="data-table" id="recentTable">
-              <thead>
-                <tr>
-                  <th>Product</th>
-                  <th>Customer</th>
-                  <th>Amount</th>
-                  <th>Profit</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
+            <div class="table-responsive">
+              <table class="data-table" id="recentTable">
+                <thead>
+                  <tr>
+                    <th>Product</th>
+                    <th>Customer</th>
+                    <th>Amount</th>
+                    <th>Profit</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
           </div>
         </section>
 
@@ -126,19 +133,21 @@
             <input type="date" id="txnDate" />
           </div>
           <div class="panel">
-            <table class="data-table" id="txnTable">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Product</th>
-                  <th>Customer</th>
-                  <th>Amount</th>
-                  <th>Profit</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
+            <div class="table-responsive">
+              <table class="data-table" id="txnTable">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Product</th>
+                    <th>Customer</th>
+                    <th>Amount</th>
+                    <th>Profit</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
           </div>
         </section>
 
@@ -155,19 +164,21 @@
             </button>
           </div>
           <div class="panel">
-            <table class="data-table" id="productTable">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Unit</th>
-                  <th>Cost</th>
-                  <th>Selling</th>
-                  <th>Margin</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
+            <div class="table-responsive">
+              <table class="data-table" id="productTable">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Unit</th>
+                    <th>Cost</th>
+                    <th>Selling</th>
+                    <th>Margin</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
           </div>
         </section>
 
@@ -277,15 +288,15 @@
     <div class="modal-backdrop hidden" id="receiptModal">
       <div class="modal">
         <div class="modal-head">
-          <h2>Send Receipt</h2>
+          <h2>Share Receipt</h2>
           <button id="closeReceipt">✕</button>
         </div>
         <div class="modal-body">
           <p id="receiptSummary"></p>
           <button id="sendWhatsapp" class="send-btn">
-            💬 Send via WhatsApp
+            💬 Share via WhatsApp
           </button>
-          <button id="sendEmail" class="send-btn">📧 Send via Email</button>
+          <button id="sendEmail" class="send-btn">📧 Share via Email</button>
         </div>
       </div>
     </div>
