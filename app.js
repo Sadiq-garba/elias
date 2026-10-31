@@ -101,6 +101,35 @@ async function onSignedIn(user) {
   $("#dashboardDate").value = todayISO();
   await loadProducts();
   await loadDashboard();
+
+  // ===== VOICE WELCOME =====
+  // Browsers require a user interaction (like clicking Login) to allow audio
+  speakWelcome();
+}
+
+function speakWelcome() {
+  if ("speechSynthesis" in window) {
+    // Cancel any ongoing speech first
+    window.speechSynthesis.cancel();
+
+    const message =
+      "Welcome to Elias Communication. Your sales tracker is ready.";
+    const utterance = new SpeechSynthesisUtterance(message);
+
+    // Optional: Customize the voice
+    utterance.rate = 0.9; // Slightly slower (0.1 to 10)
+    utterance.pitch = 1; // Normal pitch (0 to 2)
+    utterance.volume = 1; // Max volume (0 to 1)
+
+    // Try to find a pleasant English voice
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoice = voices.find(
+      (v) => v.lang.includes("en-GB") || v.lang.includes("en-US"),
+    );
+    if (preferredVoice) utterance.voice = preferredVoice;
+
+    window.speechSynthesis.speak(utterance);
+  }
 }
 
 // Boot: check existing session
