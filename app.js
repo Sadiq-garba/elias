@@ -25,6 +25,102 @@ function toast(msg, type = "success") {
   setTimeout(() => el.remove(), 3000);
 }
 
+// ========== AUTH ==========
+let isSignupMode = false;
+let currentUser = null;
+let productsCache = [];
+
+function showLogin() {
+  $("#loginScreen").classList.remove("hidden");
+  $("#appShell").classList.add("hidden");
+}
+function showApp() {
+  $("#loginScreen").classList.add("hidden");
+  $("#appShell").classList.remove("hidden");
+}
+
+$("#authToggle").addEventListener("click", (e) => {
+  e.preventDefault();
+  isSignupMode = !isSignupMode;
+  $("#authTitle").textContent = isSignupMode
+    ? "Create account"
+    : "Welcome back";
+  $("#authSub").textContent = isSignupMode
+    ? "Sign up to start selling"
+    : "Sign in to record sales";
+  $("#authSubmit").textContent = isSignupMode ? "Create Account" : "Sign In";
+  $("#authToggleText").textContent = isSignupMode
+    ? "Already have an account?"
+    : "No account?";
+  $("#authToggle").textContent = isSignupMode ? "Sign in" : "Create one";
+  $("#authError").textContent = "";
+});
+
+$("#authForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const email = $("#authEmail").value.trim();
+  const password = $("#authPassword").value;
+  const errEl = $("#authError");
+  errEl.textContent = "";
+  $("#authSubmit").disabled = true;
+  try {
+    if (isSignupMode) {
+      const { data, error } = await db.auth.signUp({ email, password });
+      if (error) throw error;
+      if (!data.session) {
+        errEl.textContent = "Check your email to confirm, then sign in.";
+        return;
+      }
+      toast("Account created!");
+      await onSignedIn(data.user);
+    } else {
+      const { data, error } = await db.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) throw error;
+      toast("Welcome back!");
+      await onSignedIn(data.user);
+    }
+  } catch (err) {
+    errEl.textContent = err.message;
+  } finally {
+    $("#authSubmit").disabled = false;
+  }
+});
+
+$("#logoutBtn").addEventListener("click", async () => {
+  await db.auth.signOut();
+  currentUser = null;
+  showLogin();
+});
+
+async function onSignedIn(user) {
+  currentUser = user;
+  showApp();
+  $("#dashboardDate").value = todayISO();
+  await loadProducts();
+  await loadDashboard();
+}
+
+// Boot: check existing session
+(async () => {
+  const {
+    data: { session },
+  } = await db.auth.getSession();
+  if (session?.user) {
+    await onSignedIn(session.user);
+  } else {
+    showLogin();
+  }
+  db.auth.onAuthStateChange((event) => {
+    if (event === "SIGNED_OUT") {
+      currentUser = null;
+      showLogin();
+    }
+  });
+})();
+
 // ========== VIEW SWITCHING ==========
 function switchView(name) {
   $$(".nav-item").forEach((n) =>
@@ -35,11 +131,13 @@ function switchView(name) {
   const titles = {
     dashboard: ["Dashboard", "Your business at a glance"],
     transactions: ["Transactions", "Search history"],
+    products: ["Products", "Your inventory catalog"],
     reports: ["Reports", "Monthly summary"],
   };
   $("#pageTitle").textContent = titles[name][0];
   $("#pageSubtitle").textContent = titles[name][1];
   if (name === "transactions") loadTransactions();
+  if (name === "products") loadProducts();
   if (name === "reports") loadReports();
 }
 $$(".nav-item").forEach((el) =>
@@ -49,17 +147,136 @@ $$(".nav-item").forEach((el) =>
   }),
 );
 
+// ========== PRODUCTS ==========
+async function loadProducts() {
+  const { data, error } = await db.from("products").select("*").order("name");
+  if (error) {
+    toast("Load products failed: " + error.message, "error");
+    return;
+  }
+  productsCache = data || [];
+  renderProductDatalist();
+  renderProductTable();
+}
+
+function renderProductDatalist() {
+  $("#productList").innerHTML = productsCache
+    .map((p) => `<option value="${escapeHtml(p.name)}"></option>`)
+    .join("");
+}
+
+function renderProductTable() {
+  const tbody = $("#productTable tbody");
+  if (!tbody) return;
+  const q = ($("#productSearch")?.value || "").toLowerCase();
+  const list = productsCache.filter((p) => p.name.toLowerCase().includes(q));
+  tbody.innerHTML = "";
+  if (!list.length) {
+    tbody.innerHTML =
+      '<tr><td colspan="6" style="text-align:center;color:#94a3b8;">No products yet — add your first item</td></tr>';
+    return;
+  }
+  list.forEach((p) => {
+    const margin = p.selling_price - p.cost_price;
+    tbody.innerHTML += `<tr>
+      <td>${escapeHtml(p.name)}</td>
+      <td>${escapeHtml(p.unit || "pcs")}</td>
+      <td>${money(p.cost_price)}</td>
+      <td>${money(p.selling_price)}</td>
+      <td class="text-green">${money(margin)}</td>
+      <td>
+        <button class="btn-edit" data-id="${p.id}">Edit</button>
+        <button class="btn-del" data-id="${p.id}">Delete</button>
+      </td>
+    </tr>`;
+  });
+  $$("#productTable .btn-edit").forEach((b) =>
+    b.addEventListener("click", () =>
+      openProductModal(productsCache.find((p) => p.id === b.dataset.id)),
+    ),
+  );
+  $$("#productTable .btn-del").forEach((b) =>
+    b.addEventListener("click", async () => {
+      if (!confirm("Delete this product?")) return;
+      const { error } = await db
+        .from("products")
+        .delete()
+        .eq("id", b.dataset.id);
+      if (error) {
+        toast(error.message, "error");
+        return;
+      }
+      toast("Product deleted");
+      await loadProducts();
+    }),
+  );
+}
+
+function openProductModal(product = null) {
+  $("#productModalTitle").textContent = product
+    ? "Edit Product"
+    : "Add Product";
+  const f = $("#productForm");
+  f.reset();
+  $("#productIdEdit").value = product?.id || "";
+  if (product) {
+    f.name.value = product.name;
+    f.unit.value = product.unit || "pcs";
+    f.cost_price.value = product.cost_price;
+    f.selling_price.value = product.selling_price;
+  }
+  $("#productModal").classList.remove("hidden");
+}
+
+$("#openNewProduct").addEventListener("click", () => openProductModal());
+$("#closeProduct").addEventListener("click", () =>
+  $("#productModal").classList.add("hidden"),
+);
+$("#cancelProduct").addEventListener("click", () =>
+  $("#productModal").classList.add("hidden"),
+);
+$("#productSearch")?.addEventListener("input", renderProductTable);
+
+$("#productForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (!currentUser) return toast("Please log in", "error");
+  const f = e.target;
+  const fd = new FormData(f);
+  const payload = {
+    user_id: currentUser.id,
+    name: fd.get("name").trim(),
+    unit: fd.get("unit").trim() || "pcs",
+    cost_price: Number(fd.get("cost_price")),
+    selling_price: Number(fd.get("selling_price")),
+  };
+  const editId = fd.get("id");
+  let error;
+  if (editId) {
+    ({ error } = await db.from("products").update(payload).eq("id", editId));
+  } else {
+    ({ error } = await db.from("products").insert(payload));
+  }
+  if (error) {
+    toast("Save failed: " + error.message, "error");
+    return;
+  }
+  toast(editId ? "Product updated" : "Product added");
+  $("#productModal").classList.add("hidden");
+  await loadProducts();
+});
+
 // ========== DASHBOARD ==========
 async function loadDashboard() {
+  if (!currentUser) return;
   const dateStr = $("#dashboardDate").value || todayISO();
   const monthStr = dateStr.slice(0, 7);
 
-  const { data: dayData } = await supabase
+  const { data: dayData } = await db
     .from("sales_transactions")
     .select("*")
     .eq("transaction_date", dateStr)
     .order("created_at", { ascending: false });
-  const { data: monthData } = await supabase
+  const { data: monthData } = await db
     .from("sales_transactions")
     .select("*")
     .gte("transaction_date", monthStr + "-01")
@@ -86,7 +303,6 @@ async function loadDashboard() {
   $("#statProfit").textContent = money(dayProfit);
   $("#statMonthSales").textContent = money(monthSales);
   $("#statMonthProfit").textContent = money(monthProfit);
-
   renderRecent(dayData || []);
 }
 
@@ -101,8 +317,8 @@ function renderRecent(list) {
   list.slice(0, 8).forEach((t) => {
     const profit = (t.selling_price - t.cost_price) * t.quantity;
     tbody.innerHTML += `<tr>
-      <td>${t.product_name}</td>
-      <td>${t.customer_name || "—"}</td>
+      <td>${escapeHtml(t.product_name)}</td>
+      <td>${escapeHtml(t.customer_name || "—")}</td>
       <td>${money(t.total_amount)}</td>
       <td class="text-green">${money(profit)}</td>
       <td><button class="btn-receipt" data-id="${t.id}">Receipt</button></td>
@@ -115,7 +331,7 @@ function renderRecent(list) {
 
 // ========== TRANSACTIONS ==========
 async function loadTransactions() {
-  let query = supabase
+  let query = db
     .from("sales_transactions")
     .select("*")
     .order("transaction_date", { ascending: false });
@@ -139,8 +355,8 @@ async function loadTransactions() {
     const profit = (t.selling_price - t.cost_price) * t.quantity;
     tbody.innerHTML += `<tr>
       <td>${t.transaction_date}</td>
-      <td>${t.product_name}</td>
-      <td>${t.customer_name || "—"}</td>
+      <td>${escapeHtml(t.product_name)}</td>
+      <td>${escapeHtml(t.customer_name || "—")}</td>
       <td>${money(t.total_amount)}</td>
       <td class="text-green">${money(profit)}</td>
       <td><button class="btn-receipt" data-id="${t.id}">Receipt</button></td>
@@ -155,9 +371,10 @@ $("#txnDate")?.addEventListener("change", loadTransactions);
 
 // ========== REPORTS ==========
 async function loadReports() {
+  if (!currentUser) return;
   const now = new Date();
   const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const { data } = await supabase
+  const { data } = await db
     .from("sales_transactions")
     .select("*")
     .gte("transaction_date", monthStr + "-01")
@@ -173,9 +390,12 @@ async function loadReports() {
 }
 
 // ========== NEW TRANSACTION ==========
-$("#openNewTxn").addEventListener("click", () =>
-  $("#txnModal").classList.remove("hidden"),
-);
+$("#openNewTxn").addEventListener("click", () => {
+  $("#txnForm").reset();
+  $("#productId").value = "";
+  $("#liveProfit").textContent = money(0);
+  $("#txnModal").classList.remove("hidden");
+});
 $("#closeModal").addEventListener("click", () =>
   $("#txnModal").classList.add("hidden"),
 );
@@ -183,54 +403,71 @@ $("#cancelTxn").addEventListener("click", () =>
   $("#txnModal").classList.add("hidden"),
 );
 
+// Product autofill — match typed name against catalog
+function handleProductInput() {
+  const typed = $("#productInput").value.trim().toLowerCase();
+  const match = productsCache.find((p) => p.name.toLowerCase() === typed);
+  if (match) {
+    $("#productId").value = match.id;
+    $("#costInput").value = match.cost_price;
+    $("#sellInput").value = match.selling_price;
+  } else {
+    $("#productId").value = "";
+  }
+  updateLiveProfit();
+}
+$("#productInput").addEventListener("input", handleProductInput);
+$("#productInput").addEventListener("change", handleProductInput);
+
+function updateLiveProfit() {
+  const fd = new FormData($("#txnForm"));
+  const qty = Number(fd.get("quantity")) || 0;
+  const cost = Number(fd.get("cost_price")) || 0;
+  const sell = Number(fd.get("selling_price")) || 0;
+  $("#liveProfit").textContent = money((sell - cost) * qty);
+}
+$("#txnForm").addEventListener("input", updateLiveProfit);
+
 $("#txnForm").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const form = e.target;
-  const fd = new FormData(form);
-  const {
-    data: { user },
-  } = await db.auth.getUser();
-  if (!user) {
+  if (!currentUser) {
     toast("Please log in first", "error");
     return;
   }
 
+  const fd = new FormData(e.target);
+  const productId = fd.get("product_id") || null;
+
   const payload = {
-    user_id: user.id,
-    product_name: fd.get("product_name"),
+    user_id: currentUser.id,
+    product_id: productId || null,
+    product_name: fd.get("product_name").trim(),
     quantity: Number(fd.get("quantity")),
     cost_price: Number(fd.get("cost_price")),
     selling_price: Number(fd.get("selling_price")),
     customer_name: fd.get("customer_name") || null,
     customer_phone: fd.get("customer_phone") || null,
     customer_email: fd.get("customer_email") || null,
+    transaction_date: todayISO(),
   };
 
-  const { error } = await supabase.from("sales_transactions").insert(payload);
+  const { error } = await db.from("sales_transactions").insert(payload);
   if (error) {
     toast("Save failed: " + error.message, "error");
     return;
   }
   toast("Sale recorded!");
-  form.reset();
+  e.target.reset();
+  $("#productId").value = "";
   $("#txnModal").classList.add("hidden");
   loadDashboard();
-});
-
-// Live profit preview
-$("#txnForm").addEventListener("input", () => {
-  const fd = new FormData($("#txnForm"));
-  const qty = Number(fd.get("quantity")) || 0;
-  const cost = Number(fd.get("cost_price")) || 0;
-  const sell = Number(fd.get("selling_price")) || 0;
-  $("#liveProfit").textContent = money((sell - cost) * qty);
 });
 
 // ========== RECEIPT + WHATSAPP ==========
 let currentReceiptTxn = null;
 
 async function openReceipt(id) {
-  const { data } = await supabase
+  const { data } = await db
     .from("sales_transactions")
     .select("*")
     .eq("id", id)
@@ -239,18 +476,16 @@ async function openReceipt(id) {
   currentReceiptTxn = data;
   const profit = (data.selling_price - data.cost_price) * data.quantity;
   $("#receiptSummary").innerHTML = `
-    <strong>${data.product_name}</strong> × ${data.quantity}<br>
+    <strong>${escapeHtml(data.product_name)}</strong> × ${data.quantity}<br>
     Total: ${money(data.total_amount)} · Profit: <span class="text-green">${money(profit)}</span><br>
-    Customer: ${data.customer_name || "Walk-in"}
+    Customer: ${escapeHtml(data.customer_name || "Walk-in")}
   `;
   $("#receiptModal").classList.remove("hidden");
 }
-
 $("#closeReceipt").addEventListener("click", () =>
   $("#receiptModal").classList.add("hidden"),
 );
 
-// Generate PDF (using pdf-gen-js)
 async function generateReceiptPDF(txn) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: "pt", format: "a4" });
@@ -268,7 +503,6 @@ async function generateReceiptPDF(txn) {
 
   doc.setDrawColor(220);
   doc.line(40, 130, 555, 130);
-
   doc.setTextColor(0);
   doc.setFontSize(12);
   doc.text("Item", 40, 154);
@@ -283,7 +517,6 @@ async function generateReceiptPDF(txn) {
   doc.text(Number(txn.total_amount).toFixed(2), 490, 178);
 
   doc.line(40, 200, 555, 200);
-
   doc.setFontSize(13);
   doc.setFont("helvetica", "bold");
   doc.text("Total:", 420, 224);
@@ -300,11 +533,11 @@ async function generateReceiptPDF(txn) {
 async function uploadReceiptAndGetUrl(txn) {
   const blob = await generateReceiptPDF(txn);
   const path = `receipts/${txn.id}.pdf`;
-  const { error } = await supabase.storage
+  const { error } = await db.storage
     .from("receipts")
     .upload(path, blob, { contentType: "application/pdf", upsert: true });
   if (error) throw error;
-  const { data } = supabase.storage.from("receipts").getPublicUrl(path);
+  const { data } = db.storage.from("receipts").getPublicUrl(path);
   return data.publicUrl;
 }
 
@@ -317,7 +550,7 @@ $("#sendWhatsapp").addEventListener("click", async () => {
   try {
     toast("Generating receipt...");
     const url = await uploadReceiptAndGetUrl(currentReceiptTxn);
-    const { data, error } = await supabase.functions.invoke("send-whatsapp", {
+    const { error } = await db.functions.invoke("send-whatsapp", {
       body: {
         phone: currentReceiptTxn.customer_phone,
         receiptUrl: url,
@@ -341,7 +574,7 @@ $("#sendEmail").addEventListener("click", async () => {
   try {
     toast("Generating receipt...");
     const url = await uploadReceiptAndGetUrl(currentReceiptTxn);
-    const { data, error } = await supabase.functions.invoke("send-email", {
+    const { error } = await db.functions.invoke("send-email", {
       body: {
         to: currentReceiptTxn.customer_email,
         name: currentReceiptTxn.customer_name || "Customer",
@@ -360,14 +593,17 @@ $("#sendEmail").addEventListener("click", async () => {
 $("#dashboardDate").value = todayISO();
 $("#dashboardDate").addEventListener("change", loadDashboard);
 
-// Login (simplified: anonymous sign-in for demo; production should use proper auth)
-(async () => {
-  const {
-    data: { user },
-  } = await db.auth.getUser();
-  if (!user) {
-    const { error } = await db.auth.signInAnonymously();
-    if (error) toast("Login failed: " + error.message, "error");
-  }
-  loadDashboard();
-})();
+// ========== HELPERS ==========
+function escapeHtml(s) {
+  return String(s ?? "").replace(
+    /[&<>"']/g,
+    (c) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[c],
+  );
+}
