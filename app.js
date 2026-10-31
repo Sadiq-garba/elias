@@ -548,17 +548,23 @@ $("#sendWhatsapp").addEventListener("click", async () => {
     return;
   }
   try {
-    toast("Generating receipt...");
+    toast("Generating receipt link...");
+    // 1. Upload PDF to Supabase (keeps your existing code)
     const url = await uploadReceiptAndGetUrl(currentReceiptTxn);
-    const { error } = await db.functions.invoke("send-whatsapp", {
-      body: {
-        phone: currentReceiptTxn.customer_phone,
-        receiptUrl: url,
-        name: currentReceiptTxn.customer_name || "Customer",
-      },
-    });
-    if (error) throw error;
-    toast("Receipt sent to WhatsApp!");
+
+    // 2. Clean the phone number (remove spaces, +, etc.)
+    let phone = currentReceiptTxn.customer_phone.replace(/\D/g, "");
+    // If the number starts with 0 (e.g., 080...), convert to 23480...
+    if (phone.startsWith("0")) phone = "234" + phone.slice(1);
+
+    // 3. Create the WhatsApp link
+    const message = `Hello ${currentReceiptTxn.customer_name || "Customer"}, here is your receipt from Ledgerly: ${url}`;
+    const waLink = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+
+    // 4. Open WhatsApp (Web or App)
+    window.open(waLink, "_blank");
+
+    toast("Opening WhatsApp... Click 'Send' to deliver.");
     $("#receiptModal").classList.add("hidden");
   } catch (err) {
     toast(err.message, "error");
