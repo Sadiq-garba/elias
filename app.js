@@ -1026,7 +1026,31 @@ document.getElementById("closeBulk")?.addEventListener("click", () => {
 document.getElementById("cancelBulk")?.addEventListener("click", () => {
   document.getElementById("bulkModal").classList.add("hidden");
 });
+function generateBarcode(name, index) {
+  // Short slug from name (letters/numbers only, max 8 chars)
+  const slug =
+    name
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "")
+      .slice(0, 8) || "PROD";
+  // Timestamp suffix so identical names still get unique codes
+  const stamp =
+    Date.now().toString().slice(-5) + String(index).padStart(2, "0");
+  return `${slug}-${stamp}`;
+}
 
+function generateBarcode(name, index) {
+  // Short slug from name (letters/numbers only, max 8 chars)
+  const slug =
+    name
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "")
+      .slice(0, 8) || "PROD";
+  // Timestamp suffix so identical names still get unique codes
+  const stamp =
+    Date.now().toString().slice(-5) + String(index).padStart(2, "0");
+  return `${slug}-${stamp}`;
+}
 function parseBulkInput(text) {
   const lines = text
     .split(/\r?\n/)
@@ -1056,7 +1080,7 @@ function parseBulkInput(text) {
       unit: unit || "pcs",
       cost_price: costNum,
       selling_price: sellNum,
-      barcode: barcode || null,
+      barcode: barcode || generateBarcode(name, i),
     });
   });
   return { valid, errors };
@@ -1197,3 +1221,154 @@ document.getElementById("bulkFile")?.addEventListener("change", async (e) => {
     toast("Could not read file: " + err.message, "error");
   }
 });
+
+// ========== BARCODE SHEET EXPORT ==========
+
+document
+  .getElementById("downloadBarcodeSheet")
+  ?.addEventListener("click", () => {
+    if (!productsCache.length) {
+      toast("No products to export", "error");
+      return;
+    }
+
+    const win = window.open("", "_blank");
+    if (!win) {
+      toast("Allow pop-ups to download the barcode sheet", "error");
+      return;
+    }
+
+    // Build the HTML for the printable page
+    win.document.write(`
+    <!doctype html>
+    <html>
+    <head>
+      <meta charset="utf-8" />
+      <title>Barcode Sheet — ${new Date().toISOString().slice(0, 10)}</title>
+      <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
+      <style>
+        * { box-sizing: border-box; }
+        body {
+          font-family: Arial, sans-serif;
+          padding: 16px;
+          background: #fff;
+        }
+        h1 {
+          font-size: 16px;
+          margin: 0 0 4px 0;
+        }
+        .meta-line {
+          font-size: 11px;
+          color: #64748b;
+          margin-bottom: 16px;
+        }
+        .grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 12px;
+        }
+        .label {
+          border: 1px dashed #cbd5e1;
+          border-radius: 8px;
+          padding: 10px 8px;
+          text-align: center;
+          page-break-inside: avoid;
+          break-inside: avoid;
+        }
+        .name {
+          font-weight: 700;
+          font-size: 12px;
+          margin-bottom: 2px;
+          line-height: 1.2;
+          word-break: break-word;
+        }
+        .prices {
+          font-size: 10px;
+          color: #475569;
+          margin-bottom: 6px;
+        }
+        .label svg {
+          max-width: 100%;
+          height: auto;
+          display: block;
+          margin: 0 auto;
+        }
+        .code {
+          font-family: monospace;
+          font-size: 9px;
+          color: #64748b;
+          margin-top: 4px;
+        }
+        @media print {
+          body { padding: 8px; }
+          .grid { gap: 8px; }
+          h1, .meta-line { page-break-after: avoid; }
+        }
+      </style>
+    </head>
+    <body>
+      <h1>Elias Communication — Product Barcodes</h1>
+      <div class="meta-line">
+        ${productsCache.length} product(s) · Generated ${new Date().toLocaleString()}
+      </div>
+      <div class="grid" id="grid"></div>
+
+      <script>
+        const products = ${JSON.stringify(
+          productsCache.map((p) => ({
+            name: p.name,
+            barcode: p.barcode || "",
+            cost_price: p.cost_price,
+            selling_price: p.selling_price,
+          })),
+        )};
+
+        const grid = document.getElementById("grid");
+        const ONE_BARCODE = products.length <= 30; // single labels when small batch
+        const LABELS_PER_PRODUCT = 1;
+
+        products.forEach((p) => {
+          // Fallback: if the product somehow has no barcode, generate one from its name
+          const code = p.barcode || "AUTO-" + p.name.replace(/\\W+/g, "").slice(0, 10).toUpperCase();
+          const payload = [code, p.name, p.cost_price, p.selling_price].join("|");
+
+          for (let i = 0; i < LABELS_PER_PRODUCT; i++) {
+            const div = document.createElement("div");
+            div.className = "label";
+            div.innerHTML =
+              '<div class="name">' + escapeText(p.name) + '</div>' +
+              '<div class="prices">Cost ₦' + p.cost_price + ' · Sell ₦' + p.selling_price + '</div>' +
+              '<svg class="bc"></svg>' +
+              '<div class="code">' + escapeText(code) + '</div>';
+            grid.appendChild(div);
+
+            const svg = div.querySelector("svg");
+            try {
+              JsBarcode(svg, payload, {
+                format: "CODE128",
+                lineColor: "#000",
+                width: 1.4,
+                height: 45,
+                displayValue: false,
+                margin: 4,
+              });
+            } catch (e) {
+              svg.outerHTML = '<div style="color:#b91c1c;font-size:10px;">Barcode error</div>';
+            }
+          }
+        });
+
+        function escapeText(s) {
+          return String(s).replace(/[&<>"']/g, (c) =>
+            ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]
+          );
+        }
+
+        // Wait for all barcodes to render, then open the print dialog
+        setTimeout(() => window.print(), 400);
+      <\/script>
+    </body>
+    </html>
+  `);
+    win.document.close();
+  });
