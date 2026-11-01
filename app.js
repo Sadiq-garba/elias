@@ -1372,3 +1372,49 @@ document
   `);
     win.document.close();
   });
+
+// ========== MOBILE SIDEBAR TOGGLE ==========
+
+const menuToggle = document.getElementById("menuToggle");
+const sidebar = document.querySelector(".sidebar");
+
+if (menuToggle && sidebar) {
+  // Ensure an overlay element exists for closing by tapping outside
+  let overlay = document.querySelector(".sidebar-overlay");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.className = "sidebar-overlay";
+    document.body.appendChild(overlay);
+  }
+
+  const openSidebar = () => {
+    sidebar.classList.add("open");
+    overlay.classList.add("open");
+  };
+
+  const closeSidebar = () => {
+    sidebar.classList.remove("open");
+    overlay.classList.remove("open");
+  };
+
+  menuToggle.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (sidebar.classList.contains("open")) {
+      closeSidebar();
+    } else {
+      openSidebar();
+    }
+  });
+
+  overlay.addEventListener("click", closeSidebar);
+
+  // Auto-close when a nav item is tapped (so the view is visible)
+  sidebar.querySelectorAll(".nav-item").forEach((item) => {
+    item.addEventListener("click", closeSidebar);
+  });
+
+  // Close on Escape key
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeSidebar();
+  });
+}
