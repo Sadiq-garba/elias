@@ -56,6 +56,33 @@ $("#authToggle").addEventListener("click", (e) => {
   $("#authError").textContent = "";
 });
 
+// ========== FORGOT PASSWORD ==========
+$("#forgotPasswordLink").addEventListener("click", async (e) => {
+  e.preventDefault();
+  const email = $("#authEmail").value.trim();
+  const errEl = $("#authError");
+  errEl.textContent = "";
+
+  if (!email) {
+    errEl.textContent =
+      "Enter your email above first, then click Forgot password.";
+    $("#authEmail").focus();
+    return;
+  }
+
+  try {
+    const { error } = await db.auth.resetPasswordForEmail(email, {
+      // Must match a Redirect URL configured in Supabase
+      redirectTo: window.location.origin + window.location.pathname,
+    });
+    if (error) throw error;
+    toast("Reset link sent — check your email.");
+    errEl.textContent = "";
+  } catch (err) {
+    errEl.textContent = err.message;
+  }
+});
+
 $("#authForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const email = $("#authEmail").value.trim();
@@ -132,8 +159,32 @@ function speakWelcome() {
   }
 }
 
-// Boot: check existing session
+// Boot: check existing session + handle password recovery
 (async () => {
+  // 1. Detect recovery link BEFORE anything else
+  const hashParams = new URLSearchParams(
+    window.location.hash.replace(/^#/, ""),
+  );
+  const isRecovery =
+    hashParams.get("type") === "recovery" ||
+    window.location.hash.includes("type=recovery");
+
+  if (isRecovery) {
+    // Supabase client parses the hash automatically on init.
+    // Give it a moment, then show the reset screen.
+    const {
+      data: { session },
+    } = await db.auth.getSession();
+    // Clear the hash so a refresh doesn't re-trigger recovery
+    history.replaceState(null, "", window.location.pathname);
+    if (session?.user) {
+      currentUser = session.user;
+      showReset();
+      return;
+    }
+  }
+
+  // 2. Normal boot
   const {
     data: { session },
   } = await db.auth.getSession();
@@ -142,10 +193,16 @@ function speakWelcome() {
   } else {
     showLogin();
   }
-  db.auth.onAuthStateChange((event) => {
+
+  // 3. Auth state listener
+  db.auth.onAuthStateChange((event, session) => {
     if (event === "SIGNED_OUT") {
       currentUser = null;
       showLogin();
+    }
+    if (event === "PASSWORD_RECOVERY") {
+      currentUser = session?.user || null;
+      showReset();
     }
   });
 })();
@@ -557,6 +614,12 @@ async function generateReceiptPDF(txn) {
   doc.text("Thank you for your purchase!", 40, 270);
 
   return doc.output("blob");
+}
+
+function showReset() {
+  $("#loginScreen").classList.add("hidden");
+  $("#appShell").classList.add("hidden");
+  $("#resetScreen").classList.remove("hidden");
 }
 
 async function uploadReceiptAndGetUrl(txn) {
