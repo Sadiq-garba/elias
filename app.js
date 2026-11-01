@@ -37,6 +37,7 @@ function toast(msg, type = "success") {
 let isSignupMode = false;
 let currentUser = null;
 let productsCache = [];
+let saleCart = [];
 
 function showLogin() {
   $("#loginScreen").classList.remove("hidden");
