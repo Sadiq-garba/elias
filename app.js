@@ -33,10 +33,17 @@ let productsCache = [];
 function showLogin() {
   $("#loginScreen").classList.remove("hidden");
   $("#appShell").classList.add("hidden");
+  $("#resetScreen").classList.add("hidden");
 }
 function showApp() {
   $("#loginScreen").classList.add("hidden");
   $("#appShell").classList.remove("hidden");
+  $("#resetScreen").classList.add("hidden");
+}
+function showReset() {
+  $("#loginScreen").classList.add("hidden");
+  $("#appShell").classList.add("hidden");
+  $("#resetScreen").classList.remove("hidden");
 }
 
 $("#authToggle").addEventListener("click", (e) => {
@@ -72,7 +79,6 @@ $("#forgotPasswordLink").addEventListener("click", async (e) => {
 
   try {
     const { error } = await db.auth.resetPasswordForEmail(email, {
-      // Must match a Redirect URL configured in Supabase
       redirectTo: window.location.origin + window.location.pathname,
     });
     if (error) throw error;
@@ -122,46 +128,71 @@ $("#logoutBtn").addEventListener("click", async () => {
   showLogin();
 });
 
+// ========== RESET PASSWORD FORM ==========
+$("#resetForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const pw = $("#newPassword").value;
+  const pw2 = $("#confirmPassword").value;
+  const errEl = $("#resetError");
+  errEl.textContent = "";
+
+  if (pw !== pw2) {
+    errEl.textContent = "Passwords do not match.";
+    return;
+  }
+  if (pw.length < 6) {
+    errEl.textContent = "Password must be at least 6 characters.";
+    return;
+  }
+
+  $("#resetSubmit").disabled = true;
+  try {
+    const { error } = await db.auth.updateUser({ password: pw });
+    if (error) throw error;
+    toast("Password updated! Please sign in.");
+    await db.auth.signOut();
+    showLogin();
+  } catch (err) {
+    errEl.textContent = err.message;
+  } finally {
+    $("#resetSubmit").disabled = false;
+  }
+});
+
+$("#backToLogin").addEventListener("click", (e) => {
+  e.preventDefault();
+  showLogin();
+});
+
 async function onSignedIn(user) {
   currentUser = user;
   showApp();
   $("#dashboardDate").value = todayISO();
   await loadProducts();
   await loadDashboard();
-
-  // ===== VOICE WELCOME =====
-  // Browsers require a user interaction (like clicking Login) to allow audio
   speakWelcome();
 }
 
 function speakWelcome() {
   if ("speechSynthesis" in window) {
-    // Cancel any ongoing speech first
     window.speechSynthesis.cancel();
-
     const message =
       "Welcome to Elias Communication. Your sales tracker is ready.";
     const utterance = new SpeechSynthesisUtterance(message);
-
-    // Optional: Customize the voice
-    utterance.rate = 0.9; // Slightly slower (0.1 to 10)
-    utterance.pitch = 1; // Normal pitch (0 to 2)
-    utterance.volume = 1; // Max volume (0 to 1)
-
-    // Try to find a pleasant English voice
+    utterance.rate = 0.9;
+    utterance.pitch = 1;
+    utterance.volume = 1;
     const voices = window.speechSynthesis.getVoices();
     const preferredVoice = voices.find(
       (v) => v.lang.includes("en-GB") || v.lang.includes("en-US"),
     );
     if (preferredVoice) utterance.voice = preferredVoice;
-
     window.speechSynthesis.speak(utterance);
   }
 }
 
 // Boot: check existing session + handle password recovery
 (async () => {
-  // 1. Detect recovery link BEFORE anything else
   const hashParams = new URLSearchParams(
     window.location.hash.replace(/^#/, ""),
   );
@@ -170,12 +201,9 @@ function speakWelcome() {
     window.location.hash.includes("type=recovery");
 
   if (isRecovery) {
-    // Supabase client parses the hash automatically on init.
-    // Give it a moment, then show the reset screen.
     const {
       data: { session },
     } = await db.auth.getSession();
-    // Clear the hash so a refresh doesn't re-trigger recovery
     history.replaceState(null, "", window.location.pathname);
     if (session?.user) {
       currentUser = session.user;
@@ -184,7 +212,6 @@ function speakWelcome() {
     }
   }
 
-  // 2. Normal boot
   const {
     data: { session },
   } = await db.auth.getSession();
@@ -194,7 +221,6 @@ function speakWelcome() {
     showLogin();
   }
 
-  // 3. Auth state listener
   db.auth.onAuthStateChange((event, session) => {
     if (event === "SIGNED_OUT") {
       currentUser = null;
@@ -310,6 +336,7 @@ function openProductModal(product = null) {
     f.unit.value = product.unit || "pcs";
     f.cost_price.value = product.cost_price;
     f.selling_price.value = product.selling_price;
+    if (f.barcode) f.barcode.value = product.barcode || "";
   }
   $("#productModal").classList.remove("hidden");
 }
@@ -335,6 +362,9 @@ $("#productForm").addEventListener("submit", async (e) => {
     cost_price: Number(fd.get("cost_price")),
     selling_price: Number(fd.get("selling_price")),
   };
+  const barcodeVal = (fd.get("barcode") || "").trim();
+  if (barcodeVal) payload.barcode = barcodeVal;
+
   const editId = fd.get("id");
   let error;
   if (editId) {
@@ -489,7 +519,6 @@ $("#cancelTxn").addEventListener("click", () =>
   $("#txnModal").classList.add("hidden"),
 );
 
-// Product autofill — match typed name against catalog
 function handleProductInput() {
   const typed = $("#productInput").value.trim().toLowerCase();
   const match = productsCache.find((p) => p.name.toLowerCase() === typed);
@@ -616,12 +645,6 @@ async function generateReceiptPDF(txn) {
   return doc.output("blob");
 }
 
-function showReset() {
-  $("#loginScreen").classList.add("hidden");
-  $("#appShell").classList.add("hidden");
-  $("#resetScreen").classList.remove("hidden");
-}
-
 async function uploadReceiptAndGetUrl(txn) {
   const blob = await generateReceiptPDF(txn);
   const path = `receipts/${txn.id}.pdf`;
@@ -633,7 +656,6 @@ async function uploadReceiptAndGetUrl(txn) {
   return data.publicUrl;
 }
 
-// Send via WhatsApp (calls Edge Function)
 $("#sendWhatsapp").addEventListener("click", async () => {
   if (!currentReceiptTxn?.customer_phone) {
     toast("Customer phone number missing", "error");
@@ -641,19 +663,14 @@ $("#sendWhatsapp").addEventListener("click", async () => {
   }
   try {
     toast("Generating receipt link...");
-    // 1. Upload PDF to Supabase (keeps your existing code)
     const url = await uploadReceiptAndGetUrl(currentReceiptTxn);
 
-    // 2. Clean the phone number (remove spaces, +, etc.)
     let phone = currentReceiptTxn.customer_phone.replace(/\D/g, "");
-    // If the number starts with 0 (e.g., 080...), convert to 23480...
     if (phone.startsWith("0")) phone = "234" + phone.slice(1);
 
-    // 3. Create the WhatsApp link
     const message = `Hello ${currentReceiptTxn.customer_name || "Customer"}, here is your receipt from Ledgerly: ${url}`;
     const waLink = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 
-    // 4. Open WhatsApp (Web or App)
     window.open(waLink, "_blank");
 
     toast("Opening WhatsApp... Click 'Send' to deliver.");
@@ -663,7 +680,6 @@ $("#sendWhatsapp").addEventListener("click", async () => {
   }
 });
 
-// Send via Email (calls Edge Function)
 $("#sendEmail").addEventListener("click", async () => {
   if (!currentReceiptTxn?.customer_email) {
     toast("Customer email missing", "error");
@@ -672,14 +688,11 @@ $("#sendEmail").addEventListener("click", async () => {
 
   try {
     toast("Generating receipt link...");
-    // 1. Upload the PDF to Supabase Storage to get the link
     const url = await uploadReceiptAndGetUrl(currentReceiptTxn);
 
-    // 2. Prepare the email details
     const subject = `Your Receipt from Ledgerly - #${currentReceiptTxn.id.slice(0, 8)}`;
     const body = `Hello ${currentReceiptTxn.customer_name || "Customer"},\n\nThank you for your purchase!\n\nItem: ${currentReceiptTxn.product_name}\nQuantity: ${currentReceiptTxn.quantity}\nTotal: ₦${Number(currentReceiptTxn.total_amount).toLocaleString()}\n\nYou can download your PDF receipt here:\n${url}\n\nBest regards,\nLedgerly Store`;
 
-    // 3. Create the mailto link and open it
     const mailtoLink = `mailto:${currentReceiptTxn.customer_email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
     window.location.href = mailtoLink;
@@ -710,3 +723,115 @@ function escapeHtml(s) {
       })[c],
   );
 }
+
+// ========== BARCODE SCANNER ==========
+
+// Polyfill BarcodeDetector if the browser doesn't have it (safe if CDN blocked)
+if (typeof window.BarcodeDetector === "undefined") {
+  if (typeof barcodeDetectorPolyfill !== "undefined") {
+    window.BarcodeDetector = barcodeDetectorPolyfill.BarcodeDetectorPolyfill;
+    console.log("BarcodeDetector: using polyfill");
+  } else {
+    console.warn(
+      "BarcodeDetector: native unavailable and polyfill not loaded. Scanner will not work.",
+    );
+  }
+} else {
+  console.log("BarcodeDetector: native");
+}
+
+let scannerStream = null;
+let scannerLoopActive = false;
+
+window.startScanner = async function () {
+  const video = document.getElementById("scannerVideo");
+  const status = document.getElementById("scannerStatus");
+
+  if (typeof window.BarcodeDetector === "undefined") {
+    status.textContent =
+      "Barcode scanning is not supported in this browser. Try Chrome on Android.";
+    return;
+  }
+
+  try {
+    // Use `ideal` so laptops (front-only cameras) also work
+    scannerStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" } },
+    });
+    video.srcObject = scannerStream;
+    await video.play();
+
+    status.textContent = "Scanning... Hold steady.";
+
+    const detector = new window.BarcodeDetector({
+      formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128"],
+    });
+
+    scannerLoopActive = true;
+
+    const scanLoop = async () => {
+      if (!scannerLoopActive) return;
+
+      try {
+        const barcodes = await detector.detect(video);
+
+        if (barcodes.length > 0) {
+          const code = barcodes[0].rawValue;
+
+          if (navigator.vibrate) navigator.vibrate(200);
+
+          window.stopScanner();
+          window.onBarcodeScanned(code);
+          return;
+        }
+      } catch (err) {
+        console.log("Detection error (ignored):", err.message);
+      }
+
+      if (scannerLoopActive) {
+        setTimeout(scanLoop, 100);
+      }
+    };
+
+    scanLoop();
+  } catch (err) {
+    status.textContent = "Camera error: " + err.message;
+    console.error("Scanner error:", err);
+  }
+};
+
+window.stopScanner = function () {
+  scannerLoopActive = false;
+  if (scannerStream) {
+    scannerStream.getTracks().forEach((track) => track.stop());
+    scannerStream = null;
+  }
+  document.getElementById("scannerModal").classList.add("hidden");
+};
+
+window.onBarcodeScanned = function (barcodeValue) {
+  const product = productsCache.find((p) => p.barcode === barcodeValue);
+
+  if (product) {
+    document.getElementById("productInput").value = product.name;
+    // Let the existing handler fill id/cost/sell/profit consistently
+    handleProductInput();
+    document.getElementById("txnModal").classList.remove("hidden");
+    toast("Product found: " + product.name);
+  } else {
+    document.getElementById("productInput").value = barcodeValue;
+    handleProductInput();
+    document.getElementById("txnModal").classList.remove("hidden");
+    toast("New barcode scanned. Enter product details.", "error");
+  }
+};
+
+// Event Listeners for Scanner
+document.getElementById("openScanner")?.addEventListener("click", () => {
+  document.getElementById("scannerModal").classList.remove("hidden");
+  window.startScanner();
+});
+
+document
+  .getElementById("closeScanner")
+  ?.addEventListener("click", window.stopScanner);
