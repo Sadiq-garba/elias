@@ -8,6 +8,14 @@ const CURRENCY = "₦";
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 
+$("#closeModal").addEventListener("click", () => {
+  document.getElementById("txnModal").classList.add("hidden");
+});
+$("#cancelTxn").addEventListener("click", () => {
+  clearCart();
+  document.getElementById("txnModal").classList.add("hidden");
+});
+
 function money(n) {
   return (
     CURRENCY +
@@ -507,10 +515,10 @@ async function loadReports() {
 
 // ========== NEW TRANSACTION ==========
 $("#openNewTxn").addEventListener("click", () => {
-  $("#txnForm").reset();
-  $("#productId").value = "";
-  $("#liveProfit").textContent = money(0);
-  $("#txnModal").classList.remove("hidden");
+  if (saleCart.length === 0) {
+    clearCart(); // ensures empty cart UI shows
+  }
+  document.getElementById("txnModal").classList.remove("hidden");
 });
 $("#closeModal").addEventListener("click", () =>
   $("#txnModal").classList.add("hidden"),
@@ -531,8 +539,19 @@ function handleProductInput() {
   }
   updateLiveProfit();
 }
-$("#productInput").addEventListener("input", handleProductInput);
-$("#productInput").addEventListener("change", handleProductInput);
+$("#productInput").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+  const typed = $("#productInput").value.trim().toLowerCase();
+  const match = productsCache.find((p) => p.name.toLowerCase() === typed);
+  if (match) {
+    addToCart(match, 1);
+    $("#productInput").value = "";
+    toast("Added: " + match.name);
+  } else {
+    toast("Product not found — check spelling or save it first.", "error");
+  }
+});
 
 function updateLiveProfit() {
   const fd = new FormData($("#txnForm"));
@@ -549,31 +568,47 @@ $("#txnForm").addEventListener("submit", async (e) => {
     toast("Please log in first", "error");
     return;
   }
+  if (!saleCart.length) {
+    toast("Scan at least one product first", "error");
+    return;
+  }
 
   const fd = new FormData(e.target);
-  const productId = fd.get("product_id") || null;
+  const customerName = (fd.get("customer_name") || "").trim();
+  const customerPhone = (fd.get("customer_phone") || "").trim();
+  const customerEmail = (fd.get("customer_email") || "").trim();
 
-  const payload = {
+  if (!customerName) {
+    toast("Enter customer name", "error");
+    return;
+  }
+  if (!customerPhone) {
+    toast("Enter customer WhatsApp number", "error");
+    return;
+  }
+
+  const payload = saleCart.map((item) => ({
     user_id: currentUser.id,
-    product_id: productId || null,
-    product_name: fd.get("product_name").trim(),
-    quantity: Number(fd.get("quantity")),
-    cost_price: Number(fd.get("cost_price")),
-    selling_price: Number(fd.get("selling_price")),
-    customer_name: fd.get("customer_name") || null,
-    customer_phone: fd.get("customer_phone") || null,
-    customer_email: fd.get("customer_email") || null,
+    product_id: item.product_id.startsWith("temp-") ? null : item.product_id,
+    product_name: item.product_name,
+    quantity: item.quantity,
+    cost_price: item.cost_price,
+    selling_price: item.selling_price,
+    customer_name: customerName,
+    customer_phone: customerPhone,
+    customer_email: customerEmail || null,
     transaction_date: todayISO(),
-  };
+  }));
 
   const { error } = await db.from("sales_transactions").insert(payload);
   if (error) {
     toast("Save failed: " + error.message, "error");
     return;
   }
-  toast("Sale recorded!");
+
+  toast(`${saleCart.length} item(s) recorded for ${customerName}!`);
+  clearCart();
   e.target.reset();
-  $("#productId").value = "";
   $("#txnModal").classList.add("hidden");
   loadDashboard();
 });
@@ -724,6 +759,105 @@ function escapeHtml(s) {
   );
 }
 
+// ========== SALE CART ==========
+
+function addToCart(product, qty = 1) {
+  const existing = saleCart.find((i) => i.product_id === product.id);
+  if (existing) {
+    existing.quantity += qty;
+  } else {
+    saleCart.push({
+      product_id: product.id,
+      product_name: product.name,
+      cost_price: Number(product.cost_price),
+      selling_price: Number(product.selling_price),
+      quantity: qty,
+    });
+  }
+  renderCart();
+}
+
+function removeFromCart(productId) {
+  saleCart = saleCart.filter((i) => i.product_id !== productId);
+  renderCart();
+}
+
+function clearCart() {
+  saleCart = [];
+  renderCart();
+}
+
+function renderCart() {
+  const container = document.getElementById("cartList");
+  const summary = document.getElementById("cartSummary");
+  const modal = document.getElementById("txnModal");
+  if (!container || !summary) return;
+
+  if (!saleCart.length) {
+    container.innerHTML =
+      '<p style="color:#94a3b8; font-size:12.5px; text-align:center; margin:8px 0;">No items yet — scan or pick a product above.</p>';
+    summary.textContent = "0 items · ₦0.00";
+    return;
+  }
+
+  let html = "";
+  let totalQty = 0;
+  let totalAmount = 0;
+  let totalProfit = 0;
+
+  saleCart.forEach((item) => {
+    const lineTotal = item.selling_price * item.quantity;
+    const lineProfit = (item.selling_price - item.cost_price) * item.quantity;
+    totalQty += item.quantity;
+    totalAmount += lineTotal;
+    totalProfit += lineProfit;
+
+    html += `
+      <div style="display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid #f1f5f9;">
+        <div style="flex:1;">
+          <div style="font-weight:600; font-size:13px;">${escapeHtml(item.product_name)}</div>
+          <div style="font-size:11.5px; color:#64748b;">
+            ${money(item.selling_price)} × ${item.quantity} = <strong>${money(lineTotal)}</strong>
+            · profit <span class="text-green">${money(lineProfit)}</span>
+          </div>
+        </div>
+        <input
+          type="number"
+          min="1"
+          value="${item.quantity}"
+          data-cart-qty="${item.product_id}"
+          style="width:60px; padding:4px 6px; font-size:12px;"
+        />
+        <button
+          type="button"
+          data-cart-remove="${item.product_id}"
+          style="background:#fee2e2; color:#b91c1c; border:none; padding:4px 8px; border-radius:6px; cursor:pointer; font-size:12px;"
+        >✕</button>
+      </div>`;
+  });
+
+  container.innerHTML = html;
+  summary.textContent = `${totalQty} item(s) · Total ${money(totalAmount)} · Profit ${money(totalProfit)}`;
+
+  // Wire qty inputs
+  container.querySelectorAll("[data-cart-qty]").forEach((input) => {
+    input.addEventListener("change", (e) => {
+      const id = e.target.dataset.cartQty;
+      const val = Math.max(1, Number(e.target.value) || 1);
+      const item = saleCart.find((i) => i.product_id === id);
+      if (item) item.quantity = val;
+      renderCart();
+    });
+  });
+
+  // Wire remove buttons
+  container.querySelectorAll("[data-cart-remove]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      removeFromCart(e.currentTarget.dataset.cartRemove);
+    });
+  });
+}
+
 // ========== BARCODE SCANNER ==========
 
 // Polyfill BarcodeDetector if the browser doesn't have it (safe if CDN blocked)
@@ -810,20 +944,59 @@ window.stopScanner = function () {
 };
 
 window.onBarcodeScanned = function (barcodeValue) {
-  const product = productsCache.find((p) => p.barcode === barcodeValue);
+  const scanned = String(barcodeValue).trim();
+
+  // Support packed labels: barcode|name|cost|selling
+  const parts = scanned.split("|");
+  let scannedBarcode = scanned;
+  let scannedName = "";
+  let scannedCost = "";
+  let scannedSelling = "";
+  if (parts.length >= 4) {
+    scannedBarcode = parts[0].trim();
+    scannedName = parts[1].trim();
+    scannedCost = parts[2].trim();
+    scannedSelling = parts[3].trim();
+  }
+
+  // Find existing product by barcode (or by exact name)
+  const product =
+    productsCache.find(
+      (p) => p.barcode && String(p.barcode).trim() === scannedBarcode,
+    ) ||
+    (scannedName &&
+      productsCache.find(
+        (p) => p.name.toLowerCase() === scannedName.toLowerCase(),
+      ));
 
   if (product) {
-    document.getElementById("productInput").value = product.name;
-    // Let the existing handler fill id/cost/sell/profit consistently
-    handleProductInput();
+    addToCart(product, 1);
     document.getElementById("txnModal").classList.remove("hidden");
-    toast("Product found: " + product.name);
-  } else {
-    document.getElementById("productInput").value = barcodeValue;
-    handleProductInput();
-    document.getElementById("txnModal").classList.remove("hidden");
-    toast("New barcode scanned. Enter product details.", "error");
+    toast("Added: " + product.name);
+    return;
   }
+
+  // No product match — if packed label has full data, use it as a temp product
+  if (scannedName && scannedCost && scannedSelling) {
+    addToCart(
+      {
+        id: "temp-" + scannedBarcode,
+        name: scannedName,
+        cost_price: Number(scannedCost),
+        selling_price: Number(scannedSelling),
+      },
+      1,
+    );
+    document.getElementById("txnModal").classList.remove("hidden");
+    toast("Added from label: " + scannedName);
+    return;
+  }
+
+  // Plain unknown barcode — tell the user
+  toast(
+    "Barcode not linked to a product. Save it first from Products.",
+    "error",
+  );
 };
 
 // Event Listeners for Scanner
