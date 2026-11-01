@@ -521,7 +521,7 @@ async function generateReceiptPDF(txn) {
 
   doc.setFontSize(22);
   doc.setFont("helvetica", "bold");
-  doc.text("LEDGERLY STORE", 40, 60);
+  doc.text("Elias Commucations", 40, 60);
 
   doc.setFontSize(11);
   doc.setFont("helvetica", "normal");

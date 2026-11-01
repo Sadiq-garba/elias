@@ -46,7 +46,54 @@
           <span id="authToggleText">No account?</span>
           <a href="#" id="authToggle">Create one</a>
         </p>
+        <p style="text-align: center; margin-top: 10px">
+          <a href="#" id="forgotPasswordLink" class="link-muted"
+            >Forgot password?</a
+          >
+        </p>
         <p id="authError" class="auth-error"></p>
+      </div>
+    </div>
+
+    <!-- ===== RESET PASSWORD SCREEN (shown after clicking email link) ===== -->
+    <div id="resetScreen" class="login-screen hidden">
+      <div class="login-card">
+        <div class="brand" style="justify-content: center; margin-bottom: 24px">
+          <div class="brand-mark">L</div>
+          <span style="color: #0f172a">Ledgerly</span>
+        </div>
+        <h1>Set new password</h1>
+        <p class="subtitle">Choose a new password for your account</p>
+
+        <form id="resetForm" class="auth-form">
+          <label
+            >New Password
+            <input
+              id="newPassword"
+              type="password"
+              required
+              minlength="6"
+              autocomplete="new-password"
+            />
+          </label>
+          <label
+            >Confirm Password
+            <input
+              id="confirmPassword"
+              type="password"
+              required
+              minlength="6"
+              autocomplete="new-password"
+            />
+          </label>
+          <button type="submit" class="btn-primary" id="resetSubmit">
+            Update Password
+          </button>
+        </form>
+        <p id="resetError" class="auth-error"></p>
+        <p class="auth-toggle">
+          <a href="#" id="backToLogin">← Back to sign in</a>
+        </p>
       </div>
     </div>
 
