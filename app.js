@@ -947,28 +947,29 @@ window.stopScanner = function () {
 window.onBarcodeScanned = function (barcodeValue) {
   const scanned = String(barcodeValue).trim();
 
-  // Support packed labels: barcode|name|cost|selling
-  const parts = scanned.split("|");
-  let scannedBarcode = scanned;
-  let scannedName = "";
-  let scannedCost = "";
-  let scannedSelling = "";
-  if (parts.length >= 4) {
-    scannedBarcode = parts[0].trim();
-    scannedName = parts[1].trim();
-    scannedCost = parts[2].trim();
-    scannedSelling = parts[3].trim();
+  // 1. Try to find an exact match
+  let product = productsCache.find(
+    (p) => p.barcode && String(p.barcode).trim() === scanned,
+  );
+
+  // 2. If no exact match, try a "fuzzy" match (ignoring spaces, dashes, and case)
+  if (!product) {
+    const cleanScanned = scanned.replace(/[^A-Z0-9]/gi, "").toUpperCase();
+    product = productsCache.find((p) => {
+      if (!p.barcode) return false;
+      const cleanStored = String(p.barcode)
+        .replace(/[^A-Z0-9]/gi, "")
+        .toUpperCase();
+      return cleanStored === cleanScanned;
+    });
   }
 
-  // Find existing product by barcode (or by exact name)
-  const product =
-    productsCache.find(
-      (p) => p.barcode && String(p.barcode).trim() === scannedBarcode,
-    ) ||
-    (scannedName &&
-      productsCache.find(
-        (p) => p.name.toLowerCase() === scannedName.toLowerCase(),
-      ));
+  // 3. If still no match, check if the scanned value contains the product name
+  if (!product) {
+    product = productsCache.find(
+      (p) => p.name && scanned.toLowerCase().includes(p.name.toLowerCase()),
+    );
+  }
 
   if (product) {
     addToCart(product, 1);
@@ -977,27 +978,8 @@ window.onBarcodeScanned = function (barcodeValue) {
     return;
   }
 
-  // No product match — if packed label has full data, use it as a temp product
-  if (scannedName && scannedCost && scannedSelling) {
-    addToCart(
-      {
-        id: "temp-" + scannedBarcode,
-        name: scannedName,
-        cost_price: Number(scannedCost),
-        selling_price: Number(scannedSelling),
-      },
-      1,
-    );
-    document.getElementById("txnModal").classList.remove("hidden");
-    toast("Added from label: " + scannedName);
-    return;
-  }
-
-  // Plain unknown barcode — tell the user
-  toast(
-    "Barcode not linked to a product. Save it first from Products.",
-    "error",
-  );
+  // If we reach here, it's truly a new/unknown barcode
+  toast("Barcode not recognized. Save it first from Products.", "error");
 };
 
 // Event Listeners for Scanner
@@ -1262,10 +1244,10 @@ document
           color: #64748b;
           margin-bottom: 16px;
         }
-        .grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 12px;
+       .grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr); /* 2 per row instead of 3 */
+       gap: 16px;
         }
         .label {
           border: 1px dashed #cbd5e1;
@@ -1330,7 +1312,7 @@ document
         products.forEach((p) => {
           // Fallback: if the product somehow has no barcode, generate one from its name
           const code = p.barcode || "AUTO-" + p.name.replace(/\\W+/g, "").slice(0, 10).toUpperCase();
-          const payload = [code, p.name, p.cost_price, p.selling_price].join("|");
+          const payload = code; 
 
           for (let i = 0; i < LABELS_PER_PRODUCT; i++) {
             const div = document.createElement("div");
@@ -1345,12 +1327,13 @@ document
             const svg = div.querySelector("svg");
             try {
               JsBarcode(svg, payload, {
-                format: "CODE128",
-                lineColor: "#000",
-                width: 1.4,
-                height: 45,
-                displayValue: false,
-                margin: 4,
+               format: "CODE128",
+               lineColor: "#000",
+               width: 2.5,        // Thicker bars (was 1.4)
+               height: 70,        // Taller bars (was 45)
+               displayValue: true, // Show the numbers below the barcode
+               fontSize: 14,
+               margin: 10,
               });
             } catch (e) {
               svg.outerHTML = '<div style="color:#b91c1c;font-size:10px;">Barcode error</div>';
