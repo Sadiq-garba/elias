@@ -264,6 +264,31 @@
             <datalist id="productList"></datalist>
             <input type="hidden" name="product_id" id="productId" />
           </label>
+
+          <label
+            >Product
+            <div style="display: flex; gap: 8px">
+              <input
+                name="product_name"
+                list="productList"
+                required
+                autocomplete="off"
+                placeholder="Type or scan..."
+                id="productInput"
+                style="flex: 1"
+              />
+              <button
+                type="button"
+                id="openScanner"
+                class="btn-primary"
+                style="padding: 8px 12px"
+              >
+                📷
+              </button>
+            </div>
+            <datalist id="productList"></datalist>
+            <input type="hidden" name="product_id" id="productId" />
+          </label>
           <label
             >Quantity
             <input name="quantity" type="number" value="1" min="1" required />
@@ -347,9 +372,38 @@
         </div>
       </div>
     </div>
+    <!-- Barcode Scanner Modal -->
+    <div class="modal-backdrop hidden" id="scannerModal">
+      <div class="modal">
+        <div class="modal-head">
+          <h2>Scan Barcode</h2>
+          <button id="closeScanner">✕</button>
+        </div>
+        <div class="modal-body" style="align-items: center">
+          <video
+            id="scannerVideo"
+            autoplay
+            playsinline
+            style="
+              width: 100%;
+              max-width: 400px;
+              border-radius: 12px;
+              background: #000;
+            "
+          ></video>
+          <p
+            id="scannerStatus"
+            style="margin-top: 10px; color: var(--text-soft)"
+          >
+            Point the camera at a barcode...
+          </p>
+        </div>
+      </div>
+    </div>
 
     <div id="toastStack"></div>
-
+    <script src="https://cdn.jsdelivr.net/npm/@undecaf/zbar-wasm@0.9.15/dist/index.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@undecaf/barcode-detector-polyfill@0.9.20/dist/index.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="app.js"></script>
