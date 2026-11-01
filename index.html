@@ -55,7 +55,7 @@
       </div>
     </div>
 
-    <!-- ===== RESET PASSWORD SCREEN (shown after clicking email link) ===== -->
+    <!-- ===== RESET PASSWORD SCREEN ===== -->
     <div id="resetScreen" class="login-screen hidden">
       <div class="login-card">
         <div class="brand" style="justify-content: center; margin-bottom: 24px">
@@ -97,7 +97,7 @@
       </div>
     </div>
 
-    <!-- ===== APP (hidden until logged in) ===== -->
+    <!-- ===== APP ===== -->
     <div id="appShell" class="hidden">
       <aside class="sidebar">
         <div class="brand">
@@ -209,6 +209,13 @@
             <button class="btn btn-primary" id="openNewProduct">
               + Add Product
             </button>
+            <button
+              class="btn btn-primary"
+              id="openBulkAdd"
+              style="background: #059669"
+            >
+              📥 Bulk Add
+            </button>
           </div>
           <div class="panel">
             <div class="table-responsive">
@@ -251,20 +258,6 @@
           <button id="closeModal">✕</button>
         </div>
         <form id="txnForm" class="modal-body">
-          <label
-            >Product
-            <input
-              name="product_name"
-              list="productList"
-              required
-              autocomplete="off"
-              placeholder="Type to search products..."
-              id="productInput"
-            />
-            <datalist id="productList"></datalist>
-            <input type="hidden" name="product_id" id="productId" />
-          </label>
-
           <label
             >Product
             <div style="display: flex; gap: 8px">
@@ -348,11 +341,125 @@
             >Selling Price
             <input name="selling_price" type="number" step="0.01" required
           /></label>
+          <label
+            >Barcode
+            <input
+              name="barcode"
+              id="productBarcodeInput"
+              placeholder="Scan or type barcode"
+            />
+          </label>
+          <div style="text-align: center; margin: 6px 0">
+            <svg id="barcodePreview"></svg>
+          </div>
+          <button
+            type="button"
+            id="printBarcodeBtn"
+            class="btn-primary"
+            style="width: 100%; margin-bottom: 4px"
+          >
+            🖨️ Print Barcode Label
+          </button>
           <div class="modal-foot">
             <button type="button" id="cancelProduct">Cancel</button>
             <button type="submit" class="btn-primary">Save</button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- Bulk Add Products Modal -->
+    <div class="modal-backdrop hidden" id="bulkModal">
+      <div class="modal" style="max-width: 720px">
+        <div class="modal-head">
+          <h2>Bulk Add Products</h2>
+          <button id="closeBulk">✕</button>
+        </div>
+        <div class="modal-body">
+          <p
+            style="
+              font-size: 12.5px;
+              color: var(--text-soft);
+              margin-bottom: 8px;
+            "
+          >
+            Paste rows from Excel/CSV or type manually. One product per line.<br />
+            Format: <code>Name, Unit, Cost, Selling, Barcode</code> — Unit and
+            Barcode are optional.
+          </p>
+
+          <div style="margin-bottom: 10px">
+            <label
+              style="
+                display: inline-block;
+                padding: 8px 14px;
+                background: #f1f5f9;
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                cursor: pointer;
+                font-size: 13px;
+              "
+            >
+              📁 Choose Excel/CSV file
+              <input
+                type="file"
+                id="bulkFile"
+                accept=".xlsx,.xls,.csv"
+                style="display: none"
+              />
+            </label>
+            <span
+              id="bulkFileName"
+              style="
+                margin-left: 10px;
+                font-size: 12.5px;
+                color: var(--text-soft);
+              "
+            ></span>
+          </div>
+
+          <textarea
+            id="bulkInput"
+            rows="10"
+            style="
+              width: 100%;
+              padding: 10px 12px;
+              border: 1px solid var(--border);
+              border-radius: 10px;
+              font-family: monospace;
+              font-size: 13px;
+              resize: vertical;
+            "
+            placeholder="Coca Cola 50cl, pcs, 150, 200, 5449000000996
+Indomie Chicken, pack, 180, 250
+Peak Milk Tin, pcs, 400, 500, 6151100012345"
+          ></textarea>
+
+          <div
+            id="bulkPreview"
+            style="font-size: 12.5px; margin-top: 8px"
+          ></div>
+
+          <div class="modal-foot">
+            <button type="button" id="cancelBulk">Cancel</button>
+            <button
+              type="button"
+              id="previewBulk"
+              style="
+                padding: 9px 18px;
+                border-radius: 10px;
+                border: 1px solid var(--border);
+                background: #fff;
+                cursor: pointer;
+              "
+            >
+              Preview
+            </button>
+            <button type="button" id="saveBulk" class="btn-primary">
+              Save All
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -372,6 +479,7 @@
         </div>
       </div>
     </div>
+
     <!-- Barcode Scanner Modal -->
     <div class="modal-backdrop hidden" id="scannerModal">
       <div class="modal">
@@ -402,6 +510,9 @@
     </div>
 
     <div id="toastStack"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@undecaf/zbar-wasm@0.9.15/dist/index.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@undecaf/barcode-detector-polyfill@0.9.20/dist/index.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

@@ -835,3 +835,191 @@ document.getElementById("openScanner")?.addEventListener("click", () => {
 document
   .getElementById("closeScanner")
   ?.addEventListener("click", window.stopScanner);
+
+// ========== BULK ADD PRODUCTS ==========
+
+document.getElementById("openBulkAdd")?.addEventListener("click", () => {
+  document.getElementById("bulkInput").value = "";
+  document.getElementById("bulkPreview").innerHTML = "";
+  document.getElementById("bulkFileName").textContent = "";
+  document.getElementById("bulkFile").value = "";
+  document.getElementById("bulkModal").classList.remove("hidden");
+});
+
+document.getElementById("closeBulk")?.addEventListener("click", () => {
+  document.getElementById("bulkModal").classList.add("hidden");
+});
+document.getElementById("cancelBulk")?.addEventListener("click", () => {
+  document.getElementById("bulkModal").classList.add("hidden");
+});
+
+function parseBulkInput(text) {
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const valid = [];
+  const errors = [];
+  lines.forEach((line, i) => {
+    const parts = line.split(/[,\t]/).map((p) => p.trim());
+    const [name, unit, cost, selling, barcode] = parts;
+    if (!name) {
+      errors.push(`Line ${i + 1}: missing name`);
+      return;
+    }
+    const costNum = Number(cost);
+    const sellNum = Number(selling);
+    if (!cost || isNaN(costNum)) {
+      errors.push(`Line ${i + 1}: invalid cost "${cost || ""}"`);
+      return;
+    }
+    if (!selling || isNaN(sellNum)) {
+      errors.push(`Line ${i + 1}: invalid selling price "${selling || ""}"`);
+      return;
+    }
+    valid.push({
+      name,
+      unit: unit || "pcs",
+      cost_price: costNum,
+      selling_price: sellNum,
+      barcode: barcode || null,
+    });
+  });
+  return { valid, errors };
+}
+
+document.getElementById("previewBulk")?.addEventListener("click", () => {
+  const text = document.getElementById("bulkInput").value;
+  const { valid, errors } = parseBulkInput(text);
+  const preview = document.getElementById("bulkPreview");
+  if (!valid.length && !errors.length) {
+    preview.innerHTML =
+      '<span style="color:#94a3b8;">Nothing to preview.</span>';
+    return;
+  }
+  let html = "";
+  if (valid.length) {
+    html += `<div style="color:#166534; margin-bottom:6px;"><strong>${valid.length} valid product(s):</strong></div>`;
+    html += `<table style="width:100%; border-collapse:collapse; font-size:12px;">
+      <thead><tr style="background:#f9fafb; text-align:left;">
+        <th style="padding:4px 6px;">Name</th>
+        <th style="padding:4px 6px;">Unit</th>
+        <th style="padding:4px 6px;">Cost</th>
+        <th style="padding:4px 6px;">Sell</th>
+        <th style="padding:4px 6px;">Barcode</th>
+      </tr></thead><tbody>`;
+    valid.forEach((p) => {
+      html += `<tr style="border-top:1px solid #f1f5f9;">
+        <td style="padding:4px 6px;">${escapeHtml(p.name)}</td>
+        <td style="padding:4px 6px;">${escapeHtml(p.unit)}</td>
+        <td style="padding:4px 6px;">${money(p.cost_price)}</td>
+        <td style="padding:4px 6px;">${money(p.selling_price)}</td>
+        <td style="padding:4px 6px;">${escapeHtml(p.barcode || "—")}</td>
+      </tr>`;
+    });
+    html += `</tbody></table>`;
+  }
+  if (errors.length) {
+    html += `<div style="color:#b91c1c; margin-top:10px;"><strong>${errors.length} error(s):</strong><ul style="margin:4px 0 0 16px; padding:0;">`;
+    errors.forEach((e) => {
+      html += `<li>${escapeHtml(e)}</li>`;
+    });
+    html += `</ul></div>`;
+  }
+  preview.innerHTML = html;
+});
+
+document.getElementById("saveBulk")?.addEventListener("click", async () => {
+  if (!currentUser) {
+    toast("Please log in first", "error");
+    return;
+  }
+  const text = document.getElementById("bulkInput").value;
+  const { valid, errors } = parseBulkInput(text);
+  if (!valid.length) {
+    toast("No valid products to save", "error");
+    return;
+  }
+  if (errors.length) {
+    const proceed = confirm(
+      `${errors.length} line(s) had errors and will be skipped.\nContinue with ${valid.length} valid product(s)?`,
+    );
+    if (!proceed) return;
+  }
+  const btn = document.getElementById("saveBulk");
+  btn.disabled = true;
+  btn.textContent = "Saving...";
+  try {
+    const payload = valid.map((p) => ({
+      user_id: currentUser.id,
+      name: p.name,
+      unit: p.unit,
+      cost_price: p.cost_price,
+      selling_price: p.selling_price,
+      barcode: p.barcode,
+    }));
+    const { error } = await db.from("products").insert(payload);
+    if (error) throw error;
+    toast(`${valid.length} product(s) added!`);
+    document.getElementById("bulkModal").classList.add("hidden");
+    await loadProducts();
+  } catch (err) {
+    toast("Bulk save failed: " + err.message, "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Save All";
+  }
+});
+
+// ========== BULK ADD FROM EXCEL FILE ==========
+
+document.getElementById("bulkFile")?.addEventListener("change", async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  document.getElementById("bulkFileName").textContent = file.name;
+  try {
+    const data = await file.arrayBuffer();
+    const workbook = XLSX.read(data, { type: "array" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, {
+      header: 1,
+      raw: true,
+      defval: "",
+    });
+    if (!rows.length) {
+      toast("File is empty", "error");
+      return;
+    }
+    let startIdx = 0;
+    const firstRow = rows[0].map((c) => String(c).toLowerCase().trim());
+    if (
+      firstRow[0] === "name" ||
+      firstRow[0] === "product" ||
+      firstRow[0] === "product name"
+    ) {
+      startIdx = 1;
+    }
+    const lines = [];
+    for (let i = startIdx; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || !row[0]) continue;
+      const name = String(row[0] ?? "").trim();
+      const unit = String(row[1] ?? "").trim();
+      const cost = String(row[2] ?? "").trim();
+      const selling = String(row[3] ?? "").trim();
+      const barcode = String(row[4] ?? "").trim();
+      if (!name) continue;
+      lines.push([name, unit, cost, selling, barcode].join(", "));
+    }
+    if (!lines.length) {
+      toast("No product rows found in file", "error");
+      return;
+    }
+    document.getElementById("bulkInput").value = lines.join("\n");
+    document.getElementById("previewBulk").click();
+    toast(`Loaded ${lines.length} row(s) from ${file.name}`);
+  } catch (err) {
+    console.error("File read error:", err);
+    toast("Could not read file: " + err.message, "error");
+  }
+});
