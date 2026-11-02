@@ -370,6 +370,7 @@ $("#productForm").addEventListener("submit", async (e) => {
     unit: fd.get("unit").trim() || "pcs",
     cost_price: Number(fd.get("cost_price")),
     selling_price: Number(fd.get("selling_price")),
+    barcode: fd.get("barcode") || null, // <--- ADD THIS LINE
   };
   const barcodeVal = (fd.get("barcode") || "").trim();
   if (barcodeVal) payload.barcode = barcodeVal;
@@ -540,6 +541,35 @@ function handleProductInput() {
   }
   updateLiveProfit();
 }
+
+// ===== PHYSICAL SCANNER LOGIC =====
+$("#productInput")?.addEventListener("keydown", (e) => {
+  // Scanners automatically send an "Enter" key at the end of the barcode
+  if (e.key === "Enter") {
+    e.preventDefault(); // Stop the form from submitting immediately
+
+    const scannedCode = e.target.value.trim();
+    if (!scannedCode) return;
+
+    // Find the product in your cache by matching the barcode
+    const matchedProduct = productsCache.find((p) => p.barcode === scannedCode);
+
+    if (matchedProduct) {
+      // Auto-fill the form fields
+      $("#productId").value = matchedProduct.id;
+      $("#costInput").value = matchedProduct.cost_price;
+      $("#sellInput").value = matchedProduct.selling_price;
+      updateLiveProfit();
+      toast(`Scanned: ${matchedProduct.name}`);
+
+      // Move the cursor to the Quantity field so you can type the quantity
+      $('input[name="quantity"]').focus();
+      $('input[name="quantity"]').select();
+    } else {
+      toast(`Barcode ${scannedCode} not found in catalog`, "error");
+    }
+  }
+});
 $("#productInput").addEventListener("keydown", (e) => {
   if (e.key !== "Enter") return;
   e.preventDefault();
