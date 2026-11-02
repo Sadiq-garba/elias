@@ -289,19 +289,36 @@ function renderProductDatalist() {
 function renderProductTable() {
   const tbody = $("#productTable tbody");
   if (!tbody) return;
+
   const q = ($("#productSearch")?.value || "").toLowerCase();
   const list = productsCache.filter((p) => p.name.toLowerCase().includes(q));
+
   tbody.innerHTML = "";
+
   if (!list.length) {
     tbody.innerHTML =
-      '<tr><td colspan="6" style="text-align:center;color:#94a3b8;">No products yet — add your first item</td></tr>';
+      '<tr><td colspan="6" style="text-align:center;color:#94a3b8;">No products found</td></tr>';
+    updateInventorySummary([]);
     return;
   }
+
   list.forEach((p) => {
     const margin = p.selling_price - p.cost_price;
+    const stock = p.unit || 0; // Using 'unit' column as stock
+
+    // Color code the stock level
+    let stockDisplay = "";
+    if (stock === 0) {
+      stockDisplay = `<span style="background:#fee2e2; color:#b91c1c; padding:4px 8px; border-radius:4px; font-weight:600; font-size:12px;">Out of Stock</span>`;
+    } else if (stock <= 5) {
+      stockDisplay = `<span style="background:#fef3c7; color:#92400e; padding:4px 8px; border-radius:4px; font-weight:600; font-size:12px;">Low: ${stock}</span>`;
+    } else {
+      stockDisplay = `<span style="background:#dcfce7; color:#166534; padding:4px 8px; border-radius:4px; font-weight:600; font-size:12px;">${stock} pcs</span>`;
+    }
+
     tbody.innerHTML += `<tr>
-      <td>${escapeHtml(p.name)}</td>
-      <td>${escapeHtml(p.unit || "pcs")}</td>
+      <td><strong>${escapeHtml(p.name)}</strong></td>
+      <td>${stockDisplay}</td>
       <td>${money(p.cost_price)}</td>
       <td>${money(p.selling_price)}</td>
       <td class="text-green">${money(margin)}</td>
@@ -311,6 +328,11 @@ function renderProductTable() {
       </td>
     </tr>`;
   });
+
+  // Update the summary cards at the top
+  updateInventorySummary(productsCache);
+
+  // Attach listeners
   $$("#productTable .btn-edit").forEach((b) =>
     b.addEventListener("click", () =>
       openProductModal(productsCache.find((p) => p.id === b.dataset.id)),
@@ -331,6 +353,24 @@ function renderProductTable() {
       await loadProducts();
     }),
   );
+}
+
+// NEW: Calculate and show inventory totals
+function updateInventorySummary(products) {
+  let totalItems = 0;
+  let totalCost = 0;
+  let lowStockCount = 0;
+
+  products.forEach((p) => {
+    const stock = p.unit || 0;
+    totalItems += stock;
+    totalCost += stock * p.cost_price;
+    if (stock <= 5) lowStockCount++; // Counts 0 and anything 5 or below
+  });
+
+  $("#invTotalItems").textContent = totalItems.toLocaleString();
+  $("#invTotalValue").textContent = money(totalCost);
+  $("#invLowStock").textContent = lowStockCount;
 }
 
 function openProductModal(product = null) {
@@ -599,37 +639,50 @@ $("#txnForm").addEventListener("submit", async (e) => {
     toast("Please log in first", "error");
     return;
   }
-  if (!saleCart.length) {
-    toast("Scan at least one product first", "error");
-    return;
-  }
 
   const fd = new FormData(e.target);
-  const customerName = (fd.get("customer_name") || "").trim();
-  const customerPhone = (fd.get("customer_phone") || "").trim();
-  const customerEmail = (fd.get("customer_email") || "").trim();
+  const productId = fd.get("product_id");
+  const qtyToSell = Number(fd.get("quantity"));
 
-  if (!customerName) {
-    toast("Enter customer name", "error");
-    return;
-  }
-  if (!customerPhone) {
-    toast("Enter customer WhatsApp number", "error");
-    return;
+  // 1. Check stock if it's a catalog product
+  if (productId) {
+    const product = productsCache.find((p) => p.id === productId);
+
+    if (product) {
+      const currentStock = product.unit; // or product.stock if you renamed it
+
+      if (currentStock < qtyToSell) {
+        toast(`Not enough stock! Only ${currentStock} left.`, "error");
+        return;
+      }
+
+      // 2. Reduce the stock in the database
+      const newStock = currentStock - qtyToSell;
+      const { error: stockError } = await db
+        .from("products")
+        .update({ unit: newStock })
+        .eq("id", productId);
+
+      if (stockError) {
+        toast("Failed to update stock: " + stockError.message, "error");
+        return;
+      }
+    }
   }
 
-  const payload = saleCart.map((item) => ({
+  // 3. Record the transaction
+  const payload = {
     user_id: currentUser.id,
-    product_id: item.product_id.startsWith("temp-") ? null : item.product_id,
-    product_name: item.product_name,
-    quantity: item.quantity,
-    cost_price: item.cost_price,
-    selling_price: item.selling_price,
-    customer_name: customerName,
-    customer_phone: customerPhone,
-    customer_email: customerEmail || null,
+    product_id: productId || null,
+    product_name: fd.get("product_name").trim(),
+    quantity: qtyToSell,
+    cost_price: Number(fd.get("cost_price")),
+    selling_price: Number(fd.get("selling_price")),
+    customer_name: fd.get("customer_name") || null,
+    customer_phone: fd.get("customer_phone") || null,
+    customer_email: fd.get("customer_email") || null,
     transaction_date: todayISO(),
-  }));
+  };
 
   const { error } = await db.from("sales_transactions").insert(payload);
   if (error) {
@@ -637,10 +690,13 @@ $("#txnForm").addEventListener("submit", async (e) => {
     return;
   }
 
-  toast(`${saleCart.length} item(s) recorded for ${customerName}!`);
-  clearCart();
+  toast("Sale recorded & stock updated!");
   e.target.reset();
+  $("#productId").value = "";
   $("#txnModal").classList.add("hidden");
+
+  // 4. Refresh dashboard and products
+  await loadProducts();
   loadDashboard();
 });
 
