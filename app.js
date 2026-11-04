@@ -356,18 +356,29 @@ function renderProductTable() {
 }
 
 // NEW: Calculate and show inventory totals
+// NEW: Calculate and show inventory totals
+// NEW: Calculate and show inventory totals
+// NEW: Calculate and show inventory totals
 function updateInventorySummary(products) {
   let totalItems = 0;
   let totalCost = 0;
   let lowStockCount = 0;
 
   products.forEach((p) => {
-    const stock = p.unit || 0;
+    // Force the stock to be a number, default to 0 if it's empty
+    const stock = Number(p.unit) || 0;
+
+    // Add the stock to the total
     totalItems += stock;
-    totalCost += stock * p.cost_price;
-    if (stock <= 5) lowStockCount++; // Counts 0 and anything 5 or below
+
+    // Force cost price to be a number
+    const cost = Number(p.cost_price) || 0;
+    totalCost += stock * cost;
+
+    if (stock <= 5) lowStockCount++;
   });
 
+  // Display the result
   $("#invTotalItems").textContent = totalItems.toLocaleString();
   $("#invTotalValue").textContent = money(totalCost);
   $("#invLowStock").textContent = lowStockCount;
