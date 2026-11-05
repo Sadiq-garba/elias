@@ -38,6 +38,8 @@ let isSignupMode = false;
 let currentUser = null;
 let productsCache = [];
 let saleCart = [];
+let isProfitRevealed = false;
+const MANAGER_PIN = "7290";
 
 function showLogin() {
   $("#loginScreen").classList.remove("hidden");
@@ -1498,3 +1500,28 @@ if (menuToggle && sidebar) {
     if (e.key === "Escape") closeSidebar();
   });
 }
+
+// ========== REVEAL PROFIT WITH PIN ==========
+$("#revealProfitBtn")?.addEventListener("click", () => {
+  if (isProfitRevealed) {
+    // If already revealed, clicking it again locks it
+    isProfitRevealed = false;
+    $("#revealProfitBtn").textContent = "🔒 Reveal Profit";
+    renderProductTable();
+    return;
+  }
+
+  // Ask for PIN
+  const enteredPin = prompt("Enter Manager PIN to view Cost & Profit:");
+
+  if (enteredPin === null) return; // User clicked Cancel
+
+  if (enteredPin === MANAGER_PIN) {
+    isProfitRevealed = true;
+    $("#revealProfitBtn").textContent = "🔓 Hide Profit";
+    renderProductTable();
+    toast("Profit unlocked");
+  } else {
+    toast("Incorrect PIN", "error");
+  }
+});
