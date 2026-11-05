@@ -483,6 +483,14 @@ async function loadDashboard() {
   $("#statMonthSales").textContent = money(monthSales);
   $("#statMonthProfit").textContent = money(monthProfit);
   renderRecent(dayData || []);
+
+  const profitCards = [
+    $("#statProfit").parentElement,
+    $("#statMonthProfit").parentElement,
+  ];
+  profitCards.forEach((card) => {
+    if (card) card.style.display = isProfitRevealed ? "" : "none";
+  });
 }
 
 function renderRecent(list) {
