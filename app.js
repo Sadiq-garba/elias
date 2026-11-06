@@ -1447,6 +1447,7 @@ document
             barcode: p.barcode || "",
             cost_price: p.cost_price,
             selling_price: p.selling_price,
+            unit: p.unit,
           })),
         )};
 
@@ -1464,6 +1465,7 @@ document
             div.className = "label";
             div.innerHTML =
               '<div class="name">' + escapeText(p.name) + '</div>' +
+               '<div class="unit-badge">Unit: ' + escapeText(p.unit) + '</div>' +
              '<div class="prices">Sell ₦' + p.selling_price + '</div>' +
               '<svg class="bc"></svg>' +
               '<div class="code">' + escapeText(code) + '</div>';
