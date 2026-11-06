@@ -1351,6 +1351,8 @@ document.getElementById("bulkFile")?.addEventListener("change", async (e) => {
 
 // ========== BARCODE SHEET EXPORT ==========
 
+// ========== BARCODE SHEET EXPORT ==========
+
 document
   .getElementById("downloadBarcodeSheet")
   ?.addEventListener("click", () => {
@@ -1391,8 +1393,8 @@ document
         }
        .grid {
         display: grid;
-        grid-template-columns: repeat(2, 1fr); /* 2 per row instead of 3 */
-       gap: 16px;
+        grid-template-columns: repeat(3, 1fr); /* 3 per row to save paper */
+        gap: 16px;
         }
         .label {
           border: 1px dashed #cbd5e1;
@@ -1412,6 +1414,16 @@ document
         .prices {
           font-size: 10px;
           color: #475569;
+          margin-bottom: 6px;
+        }
+        .unit-badge {
+          display: inline-block;
+          background: #e2e8f0;
+          color: #0f172a;
+          font-size: 9px;
+          font-weight: bold;
+          padding: 2px 6px;
+          border-radius: 4px;
           margin-bottom: 6px;
         }
         .label svg {
@@ -1436,7 +1448,7 @@ document
     <body>
       <h1>Elias Communication — Product Barcodes</h1>
       <div class="meta-line">
-        ${productsCache.length} product(s) · Generated ${new Date().toLocaleString()}
+        Generated ${new Date().toLocaleString()}
       </div>
       <div class="grid" id="grid"></div>
 
@@ -1447,40 +1459,42 @@ document
             barcode: p.barcode || "",
             cost_price: p.cost_price,
             selling_price: p.selling_price,
-            unit: p.unit,
+            unit: Number(p.unit) || 0, // Force it to be a number
           })),
         )};
 
         const grid = document.getElementById("grid");
-        const ONE_BARCODE = products.length <= 30; // single labels when small batch
-        const LABELS_PER_PRODUCT = 1;
 
         products.forEach((p) => {
-          // Fallback: if the product somehow has no barcode, generate one from its name
+          // Generate the barcode string
           const code = p.barcode || "AUTO-" + p.name.replace(/\\W+/g, "").slice(0, 10).toUpperCase();
-          const payload = code; 
+          
+          // How many labels to print? Match the stock (minimum of 1 just in case)
+          const labelsToPrint = p.unit > 0 ? p.unit : 1;
 
-          for (let i = 0; i < LABELS_PER_PRODUCT; i++) {
+          for (let i = 0; i < labelsToPrint; i++) {
             const div = document.createElement("div");
             div.className = "label";
+            
             div.innerHTML =
               '<div class="name">' + escapeText(p.name) + '</div>' +
-               '<div class="unit-badge">Unit: ' + escapeText(p.unit) + '</div>' +
-             '<div class="prices">Sell ₦' + p.selling_price + '</div>' +
+              '<div class="unit-badge">Unit: ' + escapeText(p.unit) + '</div>' +
+              '<div class="prices">Sell ₦' + p.selling_price + '</div>' +
               '<svg class="bc"></svg>' +
               '<div class="code">' + escapeText(code) + '</div>';
+              
             grid.appendChild(div);
 
             const svg = div.querySelector("svg");
             try {
-              JsBarcode(svg, payload, {
+              JsBarcode(svg, code, {
                format: "CODE128",
                lineColor: "#000",
-               width: 2.5,        // Thicker bars (was 1.4)
-               height: 70,        // Taller bars (was 45)
-               displayValue: true, // Show the numbers below the barcode
-               fontSize: 14,
-               margin: 10,
+               width: 2,        
+               height: 60,        
+               displayValue: true, 
+               fontSize: 12,
+               margin: 8,
               });
             } catch (e) {
               svg.outerHTML = '<div style="color:#b91c1c;font-size:10px;">Barcode error</div>';
@@ -1495,13 +1509,13 @@ document
         }
 
         // Wait for all barcodes to render, then open the print dialog
-        setTimeout(() => window.print(), 400);
+        setTimeout(() => window.print(), 600);
       <\/script>
     </body>
     </html>
   `);
     win.document.close();
-  });
+  }); // <--- THIS WAS MISSING IN YOUR PREVIOUS MESSAGE
 
 // ========== MOBILE SIDEBAR TOGGLE ==========
 
