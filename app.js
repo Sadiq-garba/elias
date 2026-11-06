@@ -631,17 +631,47 @@ $("#productInput")?.addEventListener("keydown", (e) => {
     }
   }
 });
-$("#productInput").addEventListener("keydown", (e) => {
+// ========== REPLACE THE TWO #productInput keydown HANDLERS ==========
+$("#productInput")?.addEventListener("keydown", (e) => {
   if (e.key !== "Enter") return;
   e.preventDefault();
-  const typed = $("#productInput").value.trim().toLowerCase();
-  const match = productsCache.find((p) => p.name.toLowerCase() === typed);
-  if (match) {
-    addToCart(match, 1);
-    $("#productInput").value = "";
-    toast("Added: " + match.name);
+  const val = e.target.value.trim();
+  if (!val) return;
+
+  // 1. Try barcode match
+  let product = productsCache.find(
+    (p) => p.barcode && String(p.barcode).trim() === val,
+  );
+
+  // 2. Fuzzy barcode (ignore spaces/dashes/case)
+  if (!product) {
+    const clean = val.replace(/[^A-Z0-9]/gi, "").toUpperCase();
+    product = productsCache.find((p) => {
+      if (!p.barcode) return false;
+      return (
+        String(p.barcode)
+          .replace(/[^A-Z0-9]/gi, "")
+          .toUpperCase() === clean
+      );
+    });
+  }
+
+  // 3. Fallback: name match
+  if (!product) {
+    product = productsCache.find(
+      (p) => p.name.toLowerCase() === val.toLowerCase(),
+    );
+  }
+
+  if (product) {
+    addToCart(product, 1);
+    e.target.value = "";
+    toast("Added: " + product.name);
   } else {
-    toast("Product not found — check spelling or save it first.", "error");
+    toast(
+      "Product not found — scan a saved barcode or type exact name.",
+      "error",
+    );
   }
 });
 
@@ -656,67 +686,57 @@ $("#txnForm").addEventListener("input", updateLiveProfit);
 
 $("#txnForm").addEventListener("submit", async (e) => {
   e.preventDefault();
-  if (!currentUser) {
-    toast("Please log in first", "error");
-    return;
-  }
+  if (!currentUser) return toast("Please log in first", "error");
+  if (!saleCart.length)
+    return toast("Cart is empty — scan a product first.", "error");
 
   const fd = new FormData(e.target);
-  const productId = fd.get("product_id");
-  const qtyToSell = Number(fd.get("quantity"));
+  const customer_name = (fd.get("customer_name") || "").trim() || null;
+  const customer_phone = (fd.get("customer_phone") || "").trim() || null;
+  const customer_email = (fd.get("customer_email") || "").trim() || null;
 
-  // 1. Check stock if it's a catalog product
-  if (productId) {
-    const product = productsCache.find((p) => p.id === productId);
-
-    if (product) {
-      const currentStock = product.unit; // or product.stock if you renamed it
-
-      if (currentStock < qtyToSell) {
-        toast(`Not enough stock! Only ${currentStock} left.`, "error");
-        return;
-      }
-
-      // 2. Reduce the stock in the database
-      const newStock = currentStock - qtyToSell;
-      const { error: stockError } = await db
-        .from("products")
-        .update({ unit: newStock })
-        .eq("id", productId);
-
-      if (stockError) {
-        toast("Failed to update stock: " + stockError.message, "error");
-        return;
-      }
+  // 1. Validate stock for every line
+  for (const item of saleCart) {
+    const p = productsCache.find((x) => x.id === item.product_id);
+    const stock = Number(p?.unit) || 0;
+    if (stock < item.quantity) {
+      return toast(
+        `Not enough stock for ${item.product_name}. Only ${stock} left.`,
+        "error",
+      );
     }
   }
 
-  // 3. Record the transaction
-  const payload = {
-    user_id: currentUser.id,
-    product_id: productId || null,
-    product_name: fd.get("product_name").trim(),
-    quantity: qtyToSell,
-    cost_price: Number(fd.get("cost_price")),
-    selling_price: Number(fd.get("selling_price")),
-    customer_name: fd.get("customer_name") || null,
-    customer_phone: fd.get("customer_phone") || null,
-    customer_email: fd.get("customer_email") || null,
-    transaction_date: todayISO(),
-  };
+  // 2. Insert one transaction row per cart item + reduce stock
+  for (const item of saleCart) {
+    const { error: txnErr } = await db.from("sales_transactions").insert({
+      user_id: currentUser.id,
+      product_id: item.product_id,
+      product_name: item.product_name,
+      quantity: item.quantity,
+      cost_price: item.cost_price,
+      selling_price: item.selling_price,
+      customer_name,
+      customer_phone,
+      customer_email,
+      transaction_date: todayISO(),
+    });
+    if (txnErr) return toast("Save failed: " + txnErr.message, "error");
 
-  const { error } = await db.from("sales_transactions").insert(payload);
-  if (error) {
-    toast("Save failed: " + error.message, "error");
-    return;
+    const p = productsCache.find((x) => x.id === item.product_id);
+    const newStock = (Number(p?.unit) || 0) - item.quantity;
+    const { error: stockErr } = await db
+      .from("products")
+      .update({ unit: newStock })
+      .eq("id", item.product_id);
+    if (stockErr)
+      return toast("Stock update failed: " + stockErr.message, "error");
   }
 
-  toast("Sale recorded & stock updated!");
+  toast(`${saleCart.length} line(s) saved!`);
+  clearCart();
   e.target.reset();
-  $("#productId").value = "";
   $("#txnModal").classList.add("hidden");
-
-  // 4. Refresh dashboard and products
   await loadProducts();
   loadDashboard();
 });
