@@ -1509,7 +1509,7 @@ document
         }
 
         // Wait for all barcodes to render, then open the print dialog
-        setTimeout(() => window.print(), 600);
+        setTimeout(() => window.print(), 2000);
       <\/script>
     </body>
     </html>
