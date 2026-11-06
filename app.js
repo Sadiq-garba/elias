@@ -1446,7 +1446,7 @@ document
             div.className = "label";
             div.innerHTML =
               '<div class="name">' + escapeText(p.name) + '</div>' +
-              '<div class="prices">Cost ₦' + p.cost_price + ' · Sell ₦' + p.selling_price + '</div>' +
+             '<div class="prices">Sell ₦' + p.selling_price + '</div>' +
               '<svg class="bc"></svg>' +
               '<div class="code">' + escapeText(code) + '</div>';
             grid.appendChild(div);
