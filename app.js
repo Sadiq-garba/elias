@@ -355,6 +355,24 @@ function renderProductTable() {
       await loadProducts();
     }),
   );
+
+  const hideStyle = isProfitRevealed ? "" : "none";
+
+  // Hide/Show table headers
+  $$("#productTable th:nth-child(3)").forEach(
+    (el) => (el.style.display = hideStyle),
+  ); // Cost Price
+  $$("#productTable th:nth-child(5)").forEach(
+    (el) => (el.style.display = hideStyle),
+  ); // Profit / Unit
+
+  // Hide/Show table cells
+  $$("#productTable td:nth-child(3)").forEach(
+    (el) => (el.style.display = hideStyle),
+  ); // Cost Price
+  $$("#productTable td:nth-child(5)").forEach(
+    (el) => (el.style.display = hideStyle),
+  ); // Profit / Unit
 }
 
 // NEW: Calculate and show inventory totals
@@ -1532,10 +1550,11 @@ if (menuToggle && sidebar) {
 // ========== REVEAL PROFIT WITH PIN ==========
 $("#revealProfitBtn")?.addEventListener("click", () => {
   if (isProfitRevealed) {
-    // If already revealed, clicking it again locks it
+    // Lock it
     isProfitRevealed = false;
     $("#revealProfitBtn").textContent = "🔒 Reveal Profit";
-    renderProductTable();
+    renderProductTable(); // Updates Products table
+    loadDashboard(); // Updates Dashboard cards
     return;
   }
 
@@ -1547,7 +1566,8 @@ $("#revealProfitBtn")?.addEventListener("click", () => {
   if (enteredPin === MANAGER_PIN) {
     isProfitRevealed = true;
     $("#revealProfitBtn").textContent = "🔓 Hide Profit";
-    renderProductTable();
+    renderProductTable(); // Updates Products table
+    loadDashboard(); // Updates Dashboard cards
     toast("Profit unlocked");
   } else {
     toast("Incorrect PIN", "error");
