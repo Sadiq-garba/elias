@@ -1357,6 +1357,8 @@ document.getElementById("bulkFile")?.addEventListener("change", async (e) => {
 
 // ========== BARCODE SHEET EXPORT ==========
 
+// ========== BARCODE SHEET EXPORT ==========
+
 document
   .getElementById("downloadBarcodeSheet")
   ?.addEventListener("click", async () => {
@@ -1376,7 +1378,7 @@ document
       });
     }
 
-    // Helper function to fix the "EntityRef" error
+    // Helper function to fix special characters in names
     function escapeXml(unsafe) {
       return String(unsafe).replace(/[<>&'"]/g, function (c) {
         switch (c) {
@@ -1404,10 +1406,10 @@ document
 
     let svgContent = "";
 
-    // Layout settings for the grid (3 columns)
-    const colWidth = 260;
-    const rowHeight = 160;
-    const itemsPerRow = 3;
+    // UPDATED LAYOUT MATH: Wider columns to fit long barcodes
+    const colWidth = 400; // Width of each column (was 260)
+    const rowHeight = 160; // Height of each row
+    const itemsPerRow = 3; // 3 per row
 
     for (let i = 0; i < productsCache.length; i++) {
       const p = productsCache[i];
@@ -1415,7 +1417,7 @@ document
         p.barcode ||
         "AUTO-" + p.name.replace(/\W+/g, "").slice(0, 10).toUpperCase();
 
-      // Calculate X and Y position for the grid
+      // Calculate X and Y position
       const col = i % itemsPerRow;
       const row = Math.floor(i / itemsPerRow);
       const x = col * colWidth + 20;
@@ -1426,17 +1428,17 @@ document
         JsBarcode(svg, code, {
           format: "CODE128",
           lineColor: "#000",
-          width: 2,
+          width: 1.5, // <--- Made barcode lines slightly thinner to fit
           height: 60,
-          displayValue: false, // We will draw the text ourselves below
+          displayValue: false,
           margin: 0,
         });
 
         // Add the barcode to the grid
         svgContent += `<g transform="translate(${x}, ${y})">${svg.innerHTML}</g>\n`;
 
-        // Add the Product Name safely
-        svgContent += `<text x="${x}" y="${y + 75}" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#000">${escapeXml(p.name.substring(0, 25))}</text>\n`;
+        // Add the Product Name safely (Truncated to 30 chars to prevent text overlap)
+        svgContent += `<text x="${x}" y="${y + 75}" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#000">${escapeXml(p.name.substring(0, 30))}</text>\n`;
 
         // Add the Price and Code safely
         svgContent += `<text x="${x}" y="${y + 90}" font-family="Arial, sans-serif" font-size="11" fill="#333">Sell: ₦${p.selling_price} | ${escapeXml(code)}</text>\n`;
@@ -1445,12 +1447,12 @@ document
       }
     }
 
-    // Calculate total height of the SVG
+    // Calculate total height of the SVG (3 columns wide, so width is roughly 1200)
     const totalRows = Math.ceil(productsCache.length / itemsPerRow);
     const totalHeight = totalRows * rowHeight + 40;
 
     // Create the final SVG file string
-    const finalSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="840" height="${totalHeight}">
+    const finalSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="${totalHeight}">
     <rect width="100%" height="100%" fill="white" />
     ${svgContent}
   </svg>`;
