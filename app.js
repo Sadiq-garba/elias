@@ -1359,6 +1359,8 @@ document.getElementById("bulkFile")?.addEventListener("change", async (e) => {
 
 // ========== BARCODE SHEET EXPORT ==========
 
+// ========== BARCODE SHEET EXPORT ==========
+
 document
   .getElementById("downloadBarcodeSheet")
   ?.addEventListener("click", async () => {
@@ -1378,7 +1380,6 @@ document
       });
     }
 
-    // Helper function to fix special characters in names
     function escapeXml(unsafe) {
       return String(unsafe).replace(/[<>&'"]/g, function (c) {
         switch (c) {
@@ -1396,9 +1397,8 @@ document
       });
     }
 
-    toast("Generating SVG... this may take a moment");
+    toast("Generating SVG... Please wait.");
 
-    // Create an off-screen container
     const container = document.createElement("div");
     container.style.position = "absolute";
     container.style.left = "-9999px";
@@ -1406,10 +1406,13 @@ document
 
     let svgContent = "";
 
-    // UPDATED LAYOUT MATH: Wider columns to fit long barcodes
-    const colWidth = 400; // Width of each column (was 260)
-    const rowHeight = 160; // Height of each row
-    const itemsPerRow = 3; // 3 per row
+    // Layout settings
+    const colWidth = 400;
+    const rowHeight = 160;
+    const itemsPerRow = 3;
+    const rowsPerPage = 6; // 6 rows per page = 18 labels per page
+
+    const labelsPerPage = itemsPerRow * rowsPerPage; // 18
 
     for (let i = 0; i < productsCache.length; i++) {
       const p = productsCache[i];
@@ -1417,18 +1420,25 @@ document
         p.barcode ||
         "AUTO-" + p.name.replace(/\W+/g, "").slice(0, 10).toUpperCase();
 
-      // Calculate X and Y position
-      const col = i % itemsPerRow;
-      const row = Math.floor(i / itemsPerRow);
+      // Calculate position relative to the current page
+      const indexOnPage = i % labelsPerPage;
+      const pageNumber = Math.floor(i / labelsPerPage);
+
+      const col = indexOnPage % itemsPerRow;
+      const row = Math.floor(indexOnPage / itemsPerRow);
+
+      // Add page offset so pages stack vertically
+      const pageOffsetY = pageNumber * (rowsPerPage * rowHeight + 100);
+
       const x = col * colWidth + 20;
-      const y = row * rowHeight + 40;
+      const y = row * rowHeight + pageOffsetY + 40;
 
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
       try {
         JsBarcode(svg, code, {
           format: "CODE128",
           lineColor: "#000",
-          width: 1.5, // <--- Made barcode lines slightly thinner to fit
+          width: 1.5,
           height: 60,
           displayValue: false,
           margin: 0,
@@ -1437,19 +1447,19 @@ document
         // Add the barcode to the grid
         svgContent += `<g transform="translate(${x}, ${y})">${svg.innerHTML}</g>\n`;
 
-        // Add the Product Name safely (Truncated to 30 chars to prevent text overlap)
+        // Add the Product Name
         svgContent += `<text x="${x}" y="${y + 75}" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#000">${escapeXml(p.name.substring(0, 30))}</text>\n`;
 
-        // Add the Price and Code safely
+        // Add the Price and Code
         svgContent += `<text x="${x}" y="${y + 90}" font-family="Arial, sans-serif" font-size="11" fill="#333">Sell: ₦${p.selling_price} | ${escapeXml(code)}</text>\n`;
       } catch (e) {
         console.error("Barcode error for", p.name, e);
       }
     }
 
-    // Calculate total height of the SVG (3 columns wide, so width is roughly 1200)
-    const totalRows = Math.ceil(productsCache.length / itemsPerRow);
-    const totalHeight = totalRows * rowHeight + 40;
+    // Calculate total height for the entire stacked document
+    const totalPages = Math.ceil(productsCache.length / labelsPerPage);
+    const totalHeight = totalPages * (rowsPerPage * rowHeight + 100);
 
     // Create the final SVG file string
     const finalSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="${totalHeight}">
@@ -1468,9 +1478,8 @@ document
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
-    // Clean up
     document.body.removeChild(container);
-    toast("SVG downloaded! Open this file directly in CorelDRAW.");
+    toast(`SVG downloaded! Contains ${productsCache.length} items.`);
   });
 
 // ========== MOBILE SIDEBAR TOGGLE ==========
