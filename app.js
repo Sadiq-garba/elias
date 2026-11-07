@@ -1363,6 +1363,8 @@ document.getElementById("bulkFile")?.addEventListener("change", async (e) => {
 
 // ========== BARCODE SHEET EXPORT (PAGINATED) ==========
 
+// ========== BARCODE SHEET EXPORT (MULTI-PAGE PDF) ==========
+
 document
   .getElementById("downloadBarcodeSheet")
   ?.addEventListener("click", async () => {
@@ -1371,11 +1373,23 @@ document
       return;
     }
 
+    // Load JsBarcode
     if (typeof JsBarcode === "undefined") {
       await new Promise((resolve) => {
         const script = document.createElement("script");
         script.src =
           "https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js";
+        script.onload = resolve;
+        document.head.appendChild(script);
+      });
+    }
+
+    // Load jsPDF (We are generating a REAL PDF now!)
+    if (typeof window.jspdf === "undefined") {
+      await new Promise((resolve) => {
+        const script = document.createElement("script");
+        script.src =
+          "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
         script.onload = resolve;
         document.head.appendChild(script);
       });
@@ -1398,48 +1412,53 @@ document
       });
     }
 
-    toast("Generating full SVG... Please wait.");
+    toast("Generating PDF... Please wait.");
 
+    // Create off-screen container for rendering barcodes
     const container = document.createElement("div");
     container.style.position = "absolute";
     container.style.left = "-9999px";
     document.body.appendChild(container);
 
-    let svgContent = "";
+    // Setup PDF (A4 Size, in points: 595 x 842)
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+
     let labelIndex = 0;
 
-    // Layout Settings
-    const colWidth = 400;
-    const rowHeight = 160;
+    // Page layout settings
     const itemsPerRow = 3;
     const rowsPerPage = 6;
-    const labelsPerPage = itemsPerRow * rowsPerPage; // 18 labels per page
+    const labelsPerPage = itemsPerRow * rowsPerPage; // 18 per page
 
-    // LOOP 1: Iterate through products
+    const startX = 30;
+    const startY = 40;
+    const colWidth = 180;
+    const rowHeight = 120;
+
+    // Loop 1: Through products
     for (let i = 0; i < productsCache.length; i++) {
       const p = productsCache[i];
       const code =
         p.barcode ||
         "AUTO-" + p.name.replace(/\W+/g, "").slice(0, 10).toUpperCase();
-
-      // How many labels to print? Match the stock (minimum of 1)
       const labelsToPrint = Number(p.unit) > 0 ? Number(p.unit) : 1;
 
-      // LOOP 2: Print a label for every single unit in stock
+      // Loop 2: Through stock quantity
       for (let qty = 0; qty < labelsToPrint; qty++) {
-        const indexOnPage = labelIndex % labelsPerPage;
-        const pageNumber = Math.floor(labelIndex / labelsPerPage);
+        // Add a new page if this is the 19th label, 37th label, etc.
+        if (labelIndex > 0 && labelIndex % labelsPerPage === 0) {
+          doc.addPage();
+        }
 
-        // Calculate position
+        const indexOnPage = labelIndex % labelsPerPage;
         const col = indexOnPage % itemsPerRow;
         const row = Math.floor(indexOnPage / itemsPerRow);
 
-        // Add page offset so pages stack vertically
-        const pageOffsetY = pageNumber * (rowsPerPage * rowHeight + 100);
+        const x = startX + col * colWidth;
+        const y = startY + row * rowHeight;
 
-        const x = col * colWidth + 20;
-        const y = row * rowHeight + pageOffsetY + 40;
-
+        // Generate the barcode graphic off-screen
         const svg = document.createElementNS(
           "http://www.w3.org/2000/svg",
           "svg",
@@ -1449,45 +1468,41 @@ document
             format: "CODE128",
             lineColor: "#000",
             width: 1.5,
-            height: 60,
+            height: 50,
             displayValue: false,
             margin: 0,
           });
 
-          svgContent += `<g transform="translate(${x}, ${y})">${svg.innerHTML}</g>\n`;
-          svgContent += `<text x="${x}" y="${y + 75}" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#000">${escapeXml(p.name.substring(0, 30))}</text>\n`;
-          svgContent += `<text x="${x}" y="${y + 90}" font-family="Arial, sans-serif" font-size="11" fill="#333">Sell: ₦${p.selling_price} | ${escapeXml(code)}</text>\n`;
+          // Convert SVG to Base64 Image to insert into PDF
+          const svgString = new XMLSerializer().serializeToString(svg);
+          const svgBase64 = btoa(unescape(encodeURIComponent(svgString)));
+          const imgUrl = "data:image/svg+xml;base64," + svgBase64;
+
+          // Add Barcode image to PDF
+          doc.addImage(imgUrl, "SVG", x, y, 150, 50);
+
+          // Add Text to PDF
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "bold");
+          doc.text(escapeXml(p.name.substring(0, 25)), x, y + 65);
+
+          doc.setFontSize(8);
+          doc.setFont("helvetica", "normal");
+          doc.text(`Sell: ₦${p.selling_price} | ${escapeXml(code)}`, x, y + 78);
         } catch (e) {
           console.error("Barcode error", e);
         }
-
         labelIndex++;
       }
     }
 
-    // Calculate the total height of the entire stacked document
-    const totalPages = Math.ceil(labelIndex / labelsPerPage);
-    const totalHeight = totalPages * (rowsPerPage * rowHeight + 100);
-
-    // Create the final SVG
-    const finalSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="${totalHeight}">
-    <rect width="100%" height="100%" fill="white" />
-    ${svgContent}
-  </svg>`;
-
-    // Download
-    const blob = new Blob([finalSvg], { type: "image/svg+xml" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `barcodes-${new Date().toISOString().slice(0, 10)}.svg`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
     document.body.removeChild(container);
-    toast(`SVG downloaded! Generated ${labelIndex} labels.`);
+
+    // Save the actual PDF file
+    doc.save(`barcodes-${new Date().toISOString().slice(0, 10)}.pdf`);
+    toast(
+      `PDF downloaded! Contains ${labelIndex} labels across ${Math.ceil(labelIndex / labelsPerPage)} pages.`,
+    );
   });
 
 // ========== MOBILE SIDEBAR TOGGLE ==========
