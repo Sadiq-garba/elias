@@ -1361,6 +1361,8 @@ document.getElementById("bulkFile")?.addEventListener("change", async (e) => {
 
 // ========== BARCODE SHEET EXPORT ==========
 
+// ========== BARCODE SHEET EXPORT (PAGINATED) ==========
+
 document
   .getElementById("downloadBarcodeSheet")
   ?.addEventListener("click", async () => {
@@ -1369,7 +1371,6 @@ document
       return;
     }
 
-    // Load JsBarcode if not already loaded
     if (typeof JsBarcode === "undefined") {
       await new Promise((resolve) => {
         const script = document.createElement("script");
@@ -1397,7 +1398,7 @@ document
       });
     }
 
-    toast("Generating SVG... Please wait.");
+    toast("Generating full SVG... Please wait.");
 
     const container = document.createElement("div");
     container.style.position = "absolute";
@@ -1405,69 +1406,76 @@ document
     document.body.appendChild(container);
 
     let svgContent = "";
+    let labelIndex = 0;
 
-    // Layout settings
+    // Layout Settings
     const colWidth = 400;
     const rowHeight = 160;
     const itemsPerRow = 3;
-    const rowsPerPage = 6; // 6 rows per page = 18 labels per page
+    const rowsPerPage = 6;
+    const labelsPerPage = itemsPerRow * rowsPerPage; // 18 labels per page
 
-    const labelsPerPage = itemsPerRow * rowsPerPage; // 18
-
+    // LOOP 1: Iterate through products
     for (let i = 0; i < productsCache.length; i++) {
       const p = productsCache[i];
       const code =
         p.barcode ||
         "AUTO-" + p.name.replace(/\W+/g, "").slice(0, 10).toUpperCase();
 
-      // Calculate position relative to the current page
-      const indexOnPage = i % labelsPerPage;
-      const pageNumber = Math.floor(i / labelsPerPage);
+      // How many labels to print? Match the stock (minimum of 1)
+      const labelsToPrint = Number(p.unit) > 0 ? Number(p.unit) : 1;
 
-      const col = indexOnPage % itemsPerRow;
-      const row = Math.floor(indexOnPage / itemsPerRow);
+      // LOOP 2: Print a label for every single unit in stock
+      for (let qty = 0; qty < labelsToPrint; qty++) {
+        const indexOnPage = labelIndex % labelsPerPage;
+        const pageNumber = Math.floor(labelIndex / labelsPerPage);
 
-      // Add page offset so pages stack vertically
-      const pageOffsetY = pageNumber * (rowsPerPage * rowHeight + 100);
+        // Calculate position
+        const col = indexOnPage % itemsPerRow;
+        const row = Math.floor(indexOnPage / itemsPerRow);
 
-      const x = col * colWidth + 20;
-      const y = row * rowHeight + pageOffsetY + 40;
+        // Add page offset so pages stack vertically
+        const pageOffsetY = pageNumber * (rowsPerPage * rowHeight + 100);
 
-      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      try {
-        JsBarcode(svg, code, {
-          format: "CODE128",
-          lineColor: "#000",
-          width: 1.5,
-          height: 60,
-          displayValue: false,
-          margin: 0,
-        });
+        const x = col * colWidth + 20;
+        const y = row * rowHeight + pageOffsetY + 40;
 
-        // Add the barcode to the grid
-        svgContent += `<g transform="translate(${x}, ${y})">${svg.innerHTML}</g>\n`;
+        const svg = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "svg",
+        );
+        try {
+          JsBarcode(svg, code, {
+            format: "CODE128",
+            lineColor: "#000",
+            width: 1.5,
+            height: 60,
+            displayValue: false,
+            margin: 0,
+          });
 
-        // Add the Product Name
-        svgContent += `<text x="${x}" y="${y + 75}" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#000">${escapeXml(p.name.substring(0, 30))}</text>\n`;
+          svgContent += `<g transform="translate(${x}, ${y})">${svg.innerHTML}</g>\n`;
+          svgContent += `<text x="${x}" y="${y + 75}" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#000">${escapeXml(p.name.substring(0, 30))}</text>\n`;
+          svgContent += `<text x="${x}" y="${y + 90}" font-family="Arial, sans-serif" font-size="11" fill="#333">Sell: ₦${p.selling_price} | ${escapeXml(code)}</text>\n`;
+        } catch (e) {
+          console.error("Barcode error", e);
+        }
 
-        // Add the Price and Code
-        svgContent += `<text x="${x}" y="${y + 90}" font-family="Arial, sans-serif" font-size="11" fill="#333">Sell: ₦${p.selling_price} | ${escapeXml(code)}</text>\n`;
-      } catch (e) {
-        console.error("Barcode error for", p.name, e);
+        labelIndex++;
       }
     }
 
-    // Calculate total height for the entire stacked document
-    const totalPages = Math.ceil(productsCache.length / labelsPerPage);
+    // Calculate the total height of the entire stacked document
+    const totalPages = Math.ceil(labelIndex / labelsPerPage);
     const totalHeight = totalPages * (rowsPerPage * rowHeight + 100);
 
-    // Create the final SVG file string
+    // Create the final SVG
     const finalSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="${totalHeight}">
     <rect width="100%" height="100%" fill="white" />
     ${svgContent}
   </svg>`;
 
-    // Trigger the download
+    // Download
     const blob = new Blob([finalSvg], { type: "image/svg+xml" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -1479,7 +1487,7 @@ document
     URL.revokeObjectURL(url);
 
     document.body.removeChild(container);
-    toast(`SVG downloaded! Contains ${productsCache.length} items.`);
+    toast(`SVG downloaded! Generated ${labelIndex} labels.`);
   });
 
 // ========== MOBILE SIDEBAR TOGGLE ==========
