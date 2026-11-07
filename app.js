@@ -1367,23 +1367,14 @@ document.getElementById("bulkFile")?.addEventListener("change", async (e) => {
 
 // ========== BARCODE SHEET EXPORT (MULTI-PAGE PDF) ==========
 
+// ========== BARCODE SHEET EXPORT (DIRECT PDF TEXT) ==========
+
 document
   .getElementById("downloadBarcodeSheet")
   ?.addEventListener("click", async () => {
     if (!productsCache.length) {
       toast("No products to export", "error");
       return;
-    }
-
-    // Load JsBarcode
-    if (typeof JsBarcode === "undefined") {
-      await new Promise((resolve) => {
-        const script = document.createElement("script");
-        script.src =
-          "https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js";
-        script.onload = resolve;
-        document.head.appendChild(script);
-      });
     }
 
     // Load jsPDF
@@ -1397,7 +1388,6 @@ document
       });
     }
 
-    // Helper to remove special characters that break standard PDF fonts
     function cleanText(str) {
       return String(str).replace(/[^\x20-\x7E]/g, "");
     }
@@ -1409,7 +1399,6 @@ document
 
     let labelIndex = 0;
 
-    // Page layout settings
     const itemsPerRow = 3;
     const rowsPerPage = 6;
     const labelsPerPage = itemsPerRow * rowsPerPage; // 18 per page
@@ -1419,11 +1408,6 @@ document
     const colWidth = 180;
     const rowHeight = 120;
 
-    // Create an invisible canvas to draw the barcodes on
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-
-    // Loop 1: Through products
     for (let i = 0; i < productsCache.length; i++) {
       const p = productsCache[i];
       const code =
@@ -1431,7 +1415,6 @@ document
         "AUTO-" + p.name.replace(/\W+/g, "").slice(0, 10).toUpperCase();
       const labelsToPrint = Number(p.unit) > 0 ? Number(p.unit) : 1;
 
-      // Loop 2: Through stock quantity
       for (let qty = 0; qty < labelsToPrint; qty++) {
         if (labelIndex > 0 && labelIndex % labelsPerPage === 0) {
           doc.addPage();
@@ -1444,75 +1427,32 @@ document
         const x = startX + col * colWidth;
         const y = startY + row * rowHeight;
 
-        try {
-          // 1. Generate barcode to a hidden SVG
-          const svg = document.createElementNS(
-            "http://www.w3.org/2000/svg",
-            "svg",
-          );
-          JsBarcode(svg, code, {
-            format: "CODE128",
-            lineColor: "#000",
-            width: 2,
-            height: 60,
-            displayValue: false,
-            margin: 0,
-          });
+        // Draw a box around the label (so you can see where to cut)
+        doc.setDrawColor(200);
+        doc.rect(x, y, 150, 80);
 
-          // 2. Convert SVG to a Data URL
-          const svgString = new XMLSerializer().serializeToString(svg);
-          const svgBlob = new Blob([svgString], {
-            type: "image/svg+xml;charset=utf-8",
-          });
-          const url = URL.createObjectURL(svgBlob);
+        // Print Product Name
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0);
+        doc.text(cleanText(p.name.substring(0, 25)), x + 5, y + 15);
 
-          // 3. Load the image into the hidden canvas
-          const img = new Image();
-          img.src = url;
-          await new Promise((resolve) => {
-            img.onload = resolve;
-          });
+        // Print Barcode Text (Since images are failing, we print the code in a large font)
+        doc.setFontSize(14);
+        doc.setFont("courier", "bold"); // Courier looks closer to a barcode
+        doc.text(cleanText(code), x + 5, y + 35);
 
-          // 4. Scale up canvas for high quality (prevents blurry barcode lines)
-          canvas.width = img.width * 2;
-          canvas.height = img.height * 2;
-          ctx.fillStyle = "white";
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        // Print Price
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Sell: NGN ${cleanText(p.selling_price)}`, x + 5, y + 55);
 
-          // 5. Get the high-quality image data from canvas
-          const pngDataUrl = canvas.toDataURL("image/png");
-
-          // 6. Add the PNG image to PDF
-          doc.addImage(pngDataUrl, "PNG", x, y, 150, 50);
-
-          // 7. Add Text to PDF
-          doc.setFontSize(10);
-          doc.setFont("helvetica", "bold");
-          doc.text(cleanText(p.name.substring(0, 26)), x, y + 65);
-
-          doc.setFontSize(9);
-          doc.setFont("helvetica", "normal");
-          // Using NGN instead of ₦ to guarantee 100% compatibility
-          doc.text(
-            `Sell: NGN ${cleanText(p.selling_price)} | ${cleanText(code)}`,
-            x,
-            y + 78,
-          );
-
-          URL.revokeObjectURL(url); // Clean up memory
-        } catch (e) {
-          console.error("Barcode error for", p.name, e);
-        }
         labelIndex++;
       }
     }
 
-    // Save the actual PDF file
     doc.save(`barcodes-${new Date().toISOString().slice(0, 10)}.pdf`);
-    toast(
-      `PDF downloaded! Contains ${labelIndex} labels across ${Math.ceil(labelIndex / labelsPerPage)} pages.`,
-    );
+    toast(`PDF downloaded! Contains ${labelIndex} labels.`);
   });
 // ========== MOBILE SIDEBAR TOGGLE ==========
 // ========== MOBILE SIDEBAR TOGGLE ==========
