@@ -1369,90 +1369,126 @@ document.getElementById("bulkFile")?.addEventListener("change", async (e) => {
 
 // ========== BARCODE SHEET EXPORT (DIRECT PDF TEXT) ==========
 
+// ========== BARCODE SHEET EXPORT (BROWSER PRINT TO PDF) ==========
+
 document
   .getElementById("downloadBarcodeSheet")
-  ?.addEventListener("click", async () => {
+  ?.addEventListener("click", () => {
     if (!productsCache.length) {
       toast("No products to export", "error");
       return;
     }
 
-    // Load jsPDF
-    if (typeof window.jspdf === "undefined") {
-      await new Promise((resolve) => {
-        const script = document.createElement("script");
-        script.src =
-          "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
-        script.onload = resolve;
-        document.head.appendChild(script);
-      });
-    }
-
-    function cleanText(str) {
-      return String(str).replace(/[^\x20-\x7E]/g, "");
-    }
-
-    toast("Generating PDF... Please wait.");
-
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ unit: "pt", format: "a4" });
-
-    let labelIndex = 0;
-
-    const itemsPerRow = 3;
-    const rowsPerPage = 6;
-    const labelsPerPage = itemsPerRow * rowsPerPage; // 18 per page
-
-    const startX = 30;
-    const startY = 40;
-    const colWidth = 180;
-    const rowHeight = 120;
-
-    for (let i = 0; i < productsCache.length; i++) {
-      const p = productsCache[i];
-      const code =
-        p.barcode ||
-        "AUTO-" + p.name.replace(/\W+/g, "").slice(0, 10).toUpperCase();
-      const labelsToPrint = Number(p.unit) > 0 ? Number(p.unit) : 1;
-
-      for (let qty = 0; qty < labelsToPrint; qty++) {
-        if (labelIndex > 0 && labelIndex % labelsPerPage === 0) {
-          doc.addPage();
-        }
-
-        const indexOnPage = labelIndex % labelsPerPage;
-        const col = indexOnPage % itemsPerRow;
-        const row = Math.floor(indexOnPage / itemsPerRow);
-
-        const x = startX + col * colWidth;
-        const y = startY + row * rowHeight;
-
-        // Draw a box around the label (so you can see where to cut)
-        doc.setDrawColor(200);
-        doc.rect(x, y, 150, 80);
-
-        // Print Product Name
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(0);
-        doc.text(cleanText(p.name.substring(0, 25)), x + 5, y + 15);
-
-        // Print Barcode Text (Since images are failing, we print the code in a large font)
-        doc.setFontSize(14);
-        doc.setFont("courier", "bold"); // Courier looks closer to a barcode
-        doc.text(cleanText(code), x + 5, y + 35);
-
-        // Print Price
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "normal");
-        doc.text(`Sell: NGN ${cleanText(p.selling_price)}`, x + 5, y + 55);
-
-        labelIndex++;
+    // 1. Flatten the stock into a single array of labels
+    const allLabels = [];
+    productsCache.forEach((p) => {
+      const qty = Number(p.unit) > 0 ? Number(p.unit) : 1;
+      for (let i = 0; i < qty; i++) {
+        allLabels.push(p);
       }
+    });
+
+    // 2. Open a new window for printing
+    const win = window.open("", "_blank");
+    if (!win) {
+      toast("Please allow pop-ups to generate the PDF", "error");
+      return;
     }
 
-    doc.save(`barcodes-${new Date().toISOString().slice(0, 10)}.pdf`);
-    toast(`PDF downloaded! Contains ${labelIndex} labels.`);
+    // 3. Write the HTML for the print page
+    win.document.write(`
+    <!doctype html>
+    <html>
+    <head>
+      <title>Barcode Print Sheet</title>
+      <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
+      <style>
+        @page { size: A4; margin: 10mm; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+        .page { 
+          display: grid; 
+          grid-template-columns: repeat(3, 1fr); 
+          gap: 10px; 
+          page-break-after: always; 
+        }
+        .label { 
+          border: 1px dashed #ccc; 
+          padding: 10px; 
+          text-align: center; 
+          page-break-inside: avoid; 
+          height: 120px; 
+          display: flex; 
+          flex-direction: column; 
+          justify-content: center; 
+          align-items: center; 
+          overflow: hidden;
+        }
+        .name { font-size: 12px; font-weight: bold; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+        .barcode-container svg { max-width: 100%; height: auto; }
+        .code { font-size: 10px; font-family: monospace; margin-top: 5px; }
+        .price { font-size: 11px; color: #333; }
+        @media print {
+          .label { border: none; } /* Hides dashed lines when printing */
+        }
+      </style>
+    </head>
+    <body>
+      <div id="pages-container"></div>
+      <script>
+        const labels = ${JSON.stringify(allLabels)};
+        const container = document.getElementById("pages-container");
+        const labelsPerPage = 18; // 3 cols x 6 rows
+        
+        let currentPage = document.createElement("div");
+        currentPage.className = "page";
+        container.appendChild(currentPage);
+
+        labels.forEach((p, index) => {
+          if (index > 0 && index % labelsPerPage === 0) {
+            currentPage = document.createElement("div");
+            currentPage.className = "page";
+            container.appendChild(currentPage);
+          }
+
+          const code = p.barcode || "AUTO-" + p.name.replace(/\\W+/g, "").slice(0, 10).toUpperCase();
+          
+          const div = document.createElement("div");
+          div.className = "label";
+          
+          // Sanitize name for HTML
+          const safeName = String(p.name).replace(/[<>&'"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'})[c]);
+          
+          div.innerHTML = \`
+            <div class="name">\${safeName.substring(0, 25)}</div>
+            <svg class="bc"></svg>
+            <div class="price">Sell: NGN \${p.selling_price}</div>
+            <div class="code">\${code}</div>
+          \`;
+          currentPage.appendChild(div);
+
+          // Draw the barcode
+          try {
+            JsBarcode(div.querySelector("svg"), code, {
+              format: "CODE128",
+              width: 1.5,
+              height: 40,
+              displayValue: false,
+              margin: 0
+            });
+          } catch (e) {
+            console.error(e);
+          }
+        });
+
+        // Wait for barcodes to render, then open print dialog
+        setTimeout(() => {
+          window.print();
+        }, 1000);
+      <\/script>
+    </body>
+    </html>
+  `);
+    win.document.close();
   });
 // ========== MOBILE SIDEBAR TOGGLE ==========
 // ========== MOBILE SIDEBAR TOGGLE ==========
