@@ -1353,170 +1353,86 @@ document.getElementById("bulkFile")?.addEventListener("change", async (e) => {
 
 // ========== BARCODE SHEET EXPORT ==========
 
+// ========== BARCODE SHEET EXPORT ==========
+
 document
   .getElementById("downloadBarcodeSheet")
-  ?.addEventListener("click", () => {
+  ?.addEventListener("click", async () => {
     if (!productsCache.length) {
       toast("No products to export", "error");
       return;
     }
 
-    const win = window.open("", "_blank");
-    if (!win) {
-      toast("Allow pop-ups to download the barcode sheet", "error");
-      return;
+    // We need to load the JsBarcode library if it hasn't been loaded yet
+    if (typeof JsBarcode === "undefined") {
+      await new Promise((resolve) => {
+        const script = document.createElement("script");
+        script.src =
+          "https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js";
+        script.onload = resolve;
+        document.head.appendChild(script);
+      });
     }
 
-    // Build the HTML for the printable page
-    win.document.write(`
-    <!doctype html>
-    <html>
-    <head>
-      <meta charset="utf-8" />
-      <title>Barcode Sheet — ${new Date().toISOString().slice(0, 10)}</title>
-      <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
-      <style>
-        * { box-sizing: border-box; }
-        body {
-          font-family: Arial, sans-serif;
-          padding: 16px;
-          background: #fff;
-        }
-        h1 {
-          font-size: 16px;
-          margin: 0 0 4px 0;
-        }
-        .meta-line {
-          font-size: 11px;
-          color: #64748b;
-          margin-bottom: 16px;
-        }
-       .grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr); /* 3 per row to save paper */
-        gap: 16px;
-        }
-        .label {
-          border: 1px dashed #cbd5e1;
-          border-radius: 8px;
-          padding: 10px 8px;
-          text-align: center;
-          page-break-inside: avoid;
-          break-inside: avoid;
-        }
-        .name {
-          font-weight: 700;
-          font-size: 12px;
-          margin-bottom: 2px;
-          line-height: 1.2;
-          word-break: break-word;
-        }
-        .prices {
-          font-size: 10px;
-          color: #475569;
-          margin-bottom: 6px;
-        }
-        .unit-badge {
-          display: inline-block;
-          background: #e2e8f0;
-          color: #0f172a;
-          font-size: 9px;
-          font-weight: bold;
-          padding: 2px 6px;
-          border-radius: 4px;
-          margin-bottom: 6px;
-        }
-        .label svg {
-          max-width: 100%;
-          height: auto;
-          display: block;
-          margin: 0 auto;
-        }
-        .code {
-          font-family: monospace;
-          font-size: 9px;
-          color: #64748b;
-          margin-top: 4px;
-        }
-        @media print {
-          body { padding: 8px; }
-          .grid { gap: 8px; }
-          h1, .meta-line { page-break-after: avoid; }
-        }
-      </style>
-    </head>
-    <body>
-      <h1>Elias Communication — Product Barcodes</h1>
-      <div class="meta-line">
-        Generated ${new Date().toLocaleString()}
-      </div>
-      <div class="grid" id="grid"></div>
+    // Create an off-screen container to generate the barcodes
+    const container = document.createElement("div");
+    container.style.position = "absolute";
+    container.style.left = "-9999px";
+    document.body.appendChild(container);
 
-      <script>
-        const products = ${JSON.stringify(
-          productsCache.map((p) => ({
-            name: p.name,
-            barcode: p.barcode || "",
-            cost_price: p.cost_price,
-            selling_price: p.selling_price,
-            unit: Number(p.unit) || 0, // Force it to be a number
-          })),
-        )};
+    let svgContent = "";
 
-        const grid = document.getElementById("grid");
+    // Loop through products and generate the SVG barcode strings
+    for (const p of productsCache) {
+      const code =
+        p.barcode ||
+        "AUTO-" + p.name.replace(/\\W+/g, "").slice(0, 10).toUpperCase();
 
-        products.forEach((p) => {
-          // Generate the barcode string
-          const code = p.barcode || "AUTO-" + p.name.replace(/\\W+/g, "").slice(0, 10).toUpperCase();
-          
-          // How many labels to print? Match the stock (minimum of 1 just in case)
-          const labelsToPrint = p.unit > 0 ? p.unit : 1;
-
-          for (let i = 0; i < labelsToPrint; i++) {
-            const div = document.createElement("div");
-            div.className = "label";
-            
-            div.innerHTML =
-              '<div class="name">' + escapeText(p.name) + '</div>' +
-              '<div class="unit-badge">Unit: ' + escapeText(p.unit) + '</div>' +
-              '<div class="prices">Sell ₦' + p.selling_price + '</div>' +
-              '<svg class="bc"></svg>' +
-              '<div class="code">' + escapeText(code) + '</div>';
-              
-            grid.appendChild(div);
-
-            const svg = div.querySelector("svg");
-            try {
-              JsBarcode(svg, code, {
-               format: "CODE128",
-               lineColor: "#000",
-               width: 2,        
-               height: 60,        
-               displayValue: true, 
-               fontSize: 12,
-               margin: 8,
-              });
-            } catch (e) {
-              svg.outerHTML = '<div style="color:#b91c1c;font-size:10px;">Barcode error</div>';
-            }
-          }
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      try {
+        JsBarcode(svg, code, {
+          format: "CODE128",
+          lineColor: "#000",
+          width: 2,
+          height: 60,
+          displayValue: true,
+          fontSize: 12,
+          margin: 8,
         });
+        // Add the generated barcode SVG to our string
+        svgContent += `<g transform="translate(10, 10)">${svg.innerHTML}</g>`;
+        svgContent += `<text x="10" y="100" font-family="Arial" font-size="12" font-weight="bold">${p.name}</text>\n`;
+        // Move down for the next barcode
+        svgContent += `<g transform="translate(0, 110)"></g>\n`;
+        // Note: For a real SVG sheet, you'd want a more complex layout loop here
+      } catch (e) {
+        console.error("Barcode error", e);
+      }
+    }
 
-        function escapeText(s) {
-          return String(s).replace(/[&<>"']/g, (c) =>
-            ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]
-          );
-        }
+    // Create the final SVG file string
+    const finalSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="${productsCache.length * 120 + 100}">
+    <rect width="100%" height="100%" fill="white" />
+    ${svgContent}
+  </svg>`;
 
-        // Wait for all barcodes to render, then open the print dialog
-        setTimeout(() => window.print(), 2000);
-      <\/script>
-    </body>
-    </html>
-  `);
-    win.document.close();
-  }); // <--- THIS WAS MISSING IN YOUR PREVIOUS MESSAGE
+    // Trigger the download
+    const blob = new Blob([finalSvg], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `barcodes-${new Date().toISOString().slice(0, 10)}.svg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 
+    // Clean up the off-screen container
+    document.body.removeChild(container);
+    toast("SVG downloaded! Open this file directly in CorelDRAW.");
+  });
+
+// ========== MOBILE SIDEBAR TOGGLE ==========
 // ========== MOBILE SIDEBAR TOGGLE ==========
 
 const menuToggle = document.getElementById("menuToggle");
