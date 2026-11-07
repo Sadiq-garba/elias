@@ -1365,6 +1365,8 @@ document.getElementById("bulkFile")?.addEventListener("change", async (e) => {
 
 // ========== BARCODE SHEET EXPORT (MULTI-PAGE PDF) ==========
 
+// ========== BARCODE SHEET EXPORT (MULTI-PAGE PDF) ==========
+
 document
   .getElementById("downloadBarcodeSheet")
   ?.addEventListener("click", async () => {
@@ -1384,7 +1386,7 @@ document
       });
     }
 
-    // Load jsPDF (We are generating a REAL PDF now!)
+    // Load jsPDF
     if (typeof window.jspdf === "undefined") {
       await new Promise((resolve) => {
         const script = document.createElement("script");
@@ -1395,32 +1397,13 @@ document
       });
     }
 
-    function escapeXml(unsafe) {
-      return String(unsafe).replace(/[<>&'"]/g, function (c) {
-        switch (c) {
-          case "<":
-            return "&lt;";
-          case ">":
-            return "&gt;";
-          case "&":
-            return "&amp;";
-          case "'":
-            return "&apos;";
-          case '"':
-            return "&quot;";
-        }
-      });
+    // Helper to remove special characters that break standard PDF fonts
+    function cleanText(str) {
+      return String(str).replace(/[^\x20-\x7E]/g, "");
     }
 
     toast("Generating PDF... Please wait.");
 
-    // Create off-screen container for rendering barcodes
-    const container = document.createElement("div");
-    container.style.position = "absolute";
-    container.style.left = "-9999px";
-    document.body.appendChild(container);
-
-    // Setup PDF (A4 Size, in points: 595 x 842)
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: "pt", format: "a4" });
 
@@ -1436,6 +1419,10 @@ document
     const colWidth = 180;
     const rowHeight = 120;
 
+    // Create an invisible canvas to draw the barcodes on
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+
     // Loop 1: Through products
     for (let i = 0; i < productsCache.length; i++) {
       const p = productsCache[i];
@@ -1446,7 +1433,6 @@ document
 
       // Loop 2: Through stock quantity
       for (let qty = 0; qty < labelsToPrint; qty++) {
-        // Add a new page if this is the 19th label, 37th label, etc.
         if (labelIndex > 0 && labelIndex % labelsPerPage === 0) {
           doc.addPage();
         }
@@ -1458,45 +1444,69 @@ document
         const x = startX + col * colWidth;
         const y = startY + row * rowHeight;
 
-        // Generate the barcode graphic off-screen
-        const svg = document.createElementNS(
-          "http://www.w3.org/2000/svg",
-          "svg",
-        );
         try {
+          // 1. Generate barcode to a hidden SVG
+          const svg = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "svg",
+          );
           JsBarcode(svg, code, {
             format: "CODE128",
             lineColor: "#000",
-            width: 1.5,
-            height: 50,
+            width: 2,
+            height: 60,
             displayValue: false,
             margin: 0,
           });
 
-          // Convert SVG to Base64 Image to insert into PDF
+          // 2. Convert SVG to a Data URL
           const svgString = new XMLSerializer().serializeToString(svg);
-          const svgBase64 = btoa(unescape(encodeURIComponent(svgString)));
-          const imgUrl = "data:image/svg+xml;base64," + svgBase64;
+          const svgBlob = new Blob([svgString], {
+            type: "image/svg+xml;charset=utf-8",
+          });
+          const url = URL.createObjectURL(svgBlob);
 
-          // Add Barcode image to PDF
-          doc.addImage(imgUrl, "SVG", x, y, 150, 50);
+          // 3. Load the image into the hidden canvas
+          const img = new Image();
+          img.src = url;
+          await new Promise((resolve) => {
+            img.onload = resolve;
+          });
 
-          // Add Text to PDF
-          doc.setFontSize(9);
+          // 4. Scale up canvas for high quality (prevents blurry barcode lines)
+          canvas.width = img.width * 2;
+          canvas.height = img.height * 2;
+          ctx.fillStyle = "white";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          // 5. Get the high-quality image data from canvas
+          const pngDataUrl = canvas.toDataURL("image/png");
+
+          // 6. Add the PNG image to PDF
+          doc.addImage(pngDataUrl, "PNG", x, y, 150, 50);
+
+          // 7. Add Text to PDF
+          doc.setFontSize(10);
           doc.setFont("helvetica", "bold");
-          doc.text(escapeXml(p.name.substring(0, 25)), x, y + 65);
+          doc.text(cleanText(p.name.substring(0, 26)), x, y + 65);
 
-          doc.setFontSize(8);
+          doc.setFontSize(9);
           doc.setFont("helvetica", "normal");
-          doc.text(`Sell: ₦${p.selling_price} | ${escapeXml(code)}`, x, y + 78);
+          // Using NGN instead of ₦ to guarantee 100% compatibility
+          doc.text(
+            `Sell: NGN ${cleanText(p.selling_price)} | ${cleanText(code)}`,
+            x,
+            y + 78,
+          );
+
+          URL.revokeObjectURL(url); // Clean up memory
         } catch (e) {
-          console.error("Barcode error", e);
+          console.error("Barcode error for", p.name, e);
         }
         labelIndex++;
       }
     }
-
-    document.body.removeChild(container);
 
     // Save the actual PDF file
     doc.save(`barcodes-${new Date().toISOString().slice(0, 10)}.pdf`);
@@ -1504,7 +1514,6 @@ document
       `PDF downloaded! Contains ${labelIndex} labels across ${Math.ceil(labelIndex / labelsPerPage)} pages.`,
     );
   });
-
 // ========== MOBILE SIDEBAR TOGGLE ==========
 // ========== MOBILE SIDEBAR TOGGLE ==========
 
