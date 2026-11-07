@@ -1355,6 +1355,8 @@ document.getElementById("bulkFile")?.addEventListener("change", async (e) => {
 
 // ========== BARCODE SHEET EXPORT ==========
 
+// ========== BARCODE SHEET EXPORT ==========
+
 document
   .getElementById("downloadBarcodeSheet")
   ?.addEventListener("click", async () => {
@@ -1363,7 +1365,7 @@ document
       return;
     }
 
-    // We need to load the JsBarcode library if it hasn't been loaded yet
+    // Load JsBarcode if not already loaded
     if (typeof JsBarcode === "undefined") {
       await new Promise((resolve) => {
         const script = document.createElement("script");
@@ -1374,7 +1376,27 @@ document
       });
     }
 
-    // Create an off-screen container to generate the barcodes
+    // Helper function to fix the "EntityRef" error
+    function escapeXml(unsafe) {
+      return String(unsafe).replace(/[<>&'"]/g, function (c) {
+        switch (c) {
+          case "<":
+            return "&lt;";
+          case ">":
+            return "&gt;";
+          case "&":
+            return "&amp;";
+          case "'":
+            return "&apos;";
+          case '"':
+            return "&quot;";
+        }
+      });
+    }
+
+    toast("Generating SVG... this may take a moment");
+
+    // Create an off-screen container
     const container = document.createElement("div");
     container.style.position = "absolute";
     container.style.left = "-9999px";
@@ -1382,11 +1404,22 @@ document
 
     let svgContent = "";
 
-    // Loop through products and generate the SVG barcode strings
-    for (const p of productsCache) {
+    // Layout settings for the grid (3 columns)
+    const colWidth = 260;
+    const rowHeight = 160;
+    const itemsPerRow = 3;
+
+    for (let i = 0; i < productsCache.length; i++) {
+      const p = productsCache[i];
       const code =
         p.barcode ||
-        "AUTO-" + p.name.replace(/\\W+/g, "").slice(0, 10).toUpperCase();
+        "AUTO-" + p.name.replace(/\W+/g, "").slice(0, 10).toUpperCase();
+
+      // Calculate X and Y position for the grid
+      const col = i % itemsPerRow;
+      const row = Math.floor(i / itemsPerRow);
+      const x = col * colWidth + 20;
+      const y = row * rowHeight + 40;
 
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
       try {
@@ -1395,23 +1428,29 @@ document
           lineColor: "#000",
           width: 2,
           height: 60,
-          displayValue: true,
-          fontSize: 12,
-          margin: 8,
+          displayValue: false, // We will draw the text ourselves below
+          margin: 0,
         });
-        // Add the generated barcode SVG to our string
-        svgContent += `<g transform="translate(10, 10)">${svg.innerHTML}</g>`;
-        svgContent += `<text x="10" y="100" font-family="Arial" font-size="12" font-weight="bold">${p.name}</text>\n`;
-        // Move down for the next barcode
-        svgContent += `<g transform="translate(0, 110)"></g>\n`;
-        // Note: For a real SVG sheet, you'd want a more complex layout loop here
+
+        // Add the barcode to the grid
+        svgContent += `<g transform="translate(${x}, ${y})">${svg.innerHTML}</g>\n`;
+
+        // Add the Product Name safely
+        svgContent += `<text x="${x}" y="${y + 75}" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#000">${escapeXml(p.name.substring(0, 25))}</text>\n`;
+
+        // Add the Price and Code safely
+        svgContent += `<text x="${x}" y="${y + 90}" font-family="Arial, sans-serif" font-size="11" fill="#333">Sell: ₦${p.selling_price} | ${escapeXml(code)}</text>\n`;
       } catch (e) {
-        console.error("Barcode error", e);
+        console.error("Barcode error for", p.name, e);
       }
     }
 
+    // Calculate total height of the SVG
+    const totalRows = Math.ceil(productsCache.length / itemsPerRow);
+    const totalHeight = totalRows * rowHeight + 40;
+
     // Create the final SVG file string
-    const finalSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="${productsCache.length * 120 + 100}">
+    const finalSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="840" height="${totalHeight}">
     <rect width="100%" height="100%" fill="white" />
     ${svgContent}
   </svg>`;
@@ -1427,7 +1466,7 @@ document
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
-    // Clean up the off-screen container
+    // Clean up
     document.body.removeChild(container);
     toast("SVG downloaded! Open this file directly in CorelDRAW.");
   });
