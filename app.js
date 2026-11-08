@@ -1473,7 +1473,7 @@ document
               width: 1.3,   /* Thinner lines */
               height: 30,   /* Shorter bars */
               displayValue: false,
-              margin: 12
+              margin: 15
             });
           } catch (e) {
             console.error(e);
