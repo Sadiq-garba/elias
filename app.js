@@ -1470,10 +1470,10 @@ document
           try {
             JsBarcode(div.querySelector("svg"), code, {
               format: "CODE128",
-              width: 1.1,   /* Thinner lines */
-              height: 25,   /* Shorter bars */
+              width: 1.3,   /* Thinner lines */
+              height: 30,   /* Shorter bars */
               displayValue: false,
-              margin: 0
+              margin: 12
             });
           } catch (e) {
             console.error(e);
