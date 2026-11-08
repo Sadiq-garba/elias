@@ -1372,6 +1372,7 @@ document.getElementById("bulkFile")?.addEventListener("change", async (e) => {
 // ========== BARCODE SHEET EXPORT (BROWSER PRINT TO PDF) ==========
 
 // ========== BARCODE SHEET EXPORT (SMALLER & OPTIMIZED) ==========
+// ========== BARCODE SHEET EXPORT (4 COLUMNS - SCANNER OPTIMIZED) ==========
 document
   .getElementById("downloadBarcodeSheet")
   ?.addEventListener("click", () => {
@@ -1380,7 +1381,6 @@ document
       return;
     }
 
-    // 1. Flatten the stock into a single array of labels
     const allLabels = [];
     productsCache.forEach((p) => {
       const qty = Number(p.unit) > 0 ? Number(p.unit) : 1;
@@ -1389,14 +1389,12 @@ document
       }
     });
 
-    // 2. Open a new window for printing
     const win = window.open("", "_blank");
     if (!win) {
       toast("Please allow pop-ups to generate the PDF", "error");
       return;
     }
 
-    // 3. Write the HTML for the print page
     win.document.write(`
     <!doctype html>
     <html>
@@ -1404,30 +1402,31 @@ document
       <title>Barcode Print Sheet</title>
       <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
       <style>
-        @page { size: A4; margin: 8mm; }
+        @page { size: A4; margin: 6mm; } /* Reduced page margin to fit more */
         body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
         .page { 
           display: grid; 
-          grid-template-columns: repeat(4, 1fr); /* 4 columns instead of 3 */
-          gap: 6px; 
+          grid-template-columns: repeat(4, 1fr); /* 4 COLUMNS */
+          gap: 8px; /* Space between labels */
           page-break-after: always; 
         }
         .label { 
-          border: 1px dashed #ccc; 
-          padding: 6px; 
+          border: 1px dashed #cbd5e1; 
+          padding: 6px 4px; 
           text-align: center; 
           page-break-inside: avoid; 
-          height: 85px; /* Smaller height */
+          height: 85px; 
           display: flex; 
           flex-direction: column; 
           justify-content: center; 
           align-items: center; 
           overflow: hidden;
+          background: #fff; /* Forces white background for scanner */
         }
-        .name { font-size: 10px; font-weight: bold; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
-        .barcode-container svg { max-width: 100%; height: auto; }
-        .code { font-size: 8px; font-family: monospace; margin-top: 2px; }
-        .price { font-size: 9px; color: #333; }
+        .name { font-size: 9.5px; font-weight: bold; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+        .barcode-container svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+        .code { font-size: 7.5px; font-family: monospace; margin-top: 2px; color: #333; }
+        .price { font-size: 8.5px; color: #333; margin-bottom: 1px; }
         @media print {
           .label { border: none; }
         }
@@ -1438,7 +1437,7 @@ document
       <script>
         const labels = ${JSON.stringify(allLabels)};
         const container = document.getElementById("pages-container");
-        const labelsPerPage = 32; // 4 cols x 8 rows = 32 labels
+        const labelsPerPage = 32; // 4 cols x 8 rows = 32 per page
         
         let currentPage = document.createElement("div");
         currentPage.className = "page";
@@ -1459,9 +1458,9 @@ document
           const safeName = String(p.name).replace(/[<>&'"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'})[c]);
           
           div.innerHTML = \`
-            <div class="name">\${safeName.substring(0, 22)}</div>
+            <div class="name">\${safeName.substring(0, 20)}</div>
             <svg class="bc"></svg>
-            <div class="price">Sell: NGN \${p.selling_price}</div>
+            <div class="price">₦\${p.selling_price}</div>
             <div class="code">\${code}</div>
           \`;
           currentPage.appendChild(div);
@@ -1470,17 +1469,16 @@ document
           try {
             JsBarcode(div.querySelector("svg"), code, {
               format: "CODE128",
-              width: 1.3,   /* Thinner lines */
-              height: 30,   /* Shorter bars */
+              width: 1.1,    /* Thin bars to fit 4 columns */
+              height: 28,    /* Bar height */
               displayValue: false,
-              margin: 15
+              margin: 10     /* CRITICAL: Quiet zone for the scanner */
             });
           } catch (e) {
             console.error(e);
           }
         });
 
-        // Wait for barcodes to render, then open print dialog
         setTimeout(() => {
           window.print();
         }, 1000);
