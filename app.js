@@ -1371,6 +1371,7 @@ document.getElementById("bulkFile")?.addEventListener("change", async (e) => {
 
 // ========== BARCODE SHEET EXPORT (BROWSER PRINT TO PDF) ==========
 
+// ========== BARCODE SHEET EXPORT (SMALLER & OPTIMIZED) ==========
 document
   .getElementById("downloadBarcodeSheet")
   ?.addEventListener("click", () => {
@@ -1403,32 +1404,32 @@ document
       <title>Barcode Print Sheet</title>
       <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
       <style>
-        @page { size: A4; margin: 10mm; }
+        @page { size: A4; margin: 8mm; }
         body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
         .page { 
           display: grid; 
-          grid-template-columns: repeat(3, 1fr); 
-          gap: 10px; 
+          grid-template-columns: repeat(4, 1fr); /* 4 columns instead of 3 */
+          gap: 6px; 
           page-break-after: always; 
         }
         .label { 
           border: 1px dashed #ccc; 
-          padding: 10px; 
+          padding: 6px; 
           text-align: center; 
           page-break-inside: avoid; 
-          height: 120px; 
+          height: 85px; /* Smaller height */
           display: flex; 
           flex-direction: column; 
           justify-content: center; 
           align-items: center; 
           overflow: hidden;
         }
-        .name { font-size: 12px; font-weight: bold; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+        .name { font-size: 10px; font-weight: bold; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
         .barcode-container svg { max-width: 100%; height: auto; }
-        .code { font-size: 10px; font-family: monospace; margin-top: 5px; }
-        .price { font-size: 11px; color: #333; }
+        .code { font-size: 8px; font-family: monospace; margin-top: 2px; }
+        .price { font-size: 9px; color: #333; }
         @media print {
-          .label { border: none; } /* Hides dashed lines when printing */
+          .label { border: none; }
         }
       </style>
     </head>
@@ -1437,7 +1438,7 @@ document
       <script>
         const labels = ${JSON.stringify(allLabels)};
         const container = document.getElementById("pages-container");
-        const labelsPerPage = 18; // 3 cols x 6 rows
+        const labelsPerPage = 32; // 4 cols x 8 rows = 32 labels
         
         let currentPage = document.createElement("div");
         currentPage.className = "page";
@@ -1455,11 +1456,10 @@ document
           const div = document.createElement("div");
           div.className = "label";
           
-          // Sanitize name for HTML
           const safeName = String(p.name).replace(/[<>&'"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'})[c]);
           
           div.innerHTML = \`
-            <div class="name">\${safeName.substring(0, 25)}</div>
+            <div class="name">\${safeName.substring(0, 22)}</div>
             <svg class="bc"></svg>
             <div class="price">Sell: NGN \${p.selling_price}</div>
             <div class="code">\${code}</div>
@@ -1470,8 +1470,8 @@ document
           try {
             JsBarcode(div.querySelector("svg"), code, {
               format: "CODE128",
-              width: 1.5,
-              height: 40,
+              width: 1.1,   /* Thinner lines */
+              height: 25,   /* Shorter bars */
               displayValue: false,
               margin: 0
             });
