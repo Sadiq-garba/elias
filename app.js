@@ -621,60 +621,27 @@ function handleProductInput() {
   updateLiveProfit();
 }
 
-// ===== PHYSICAL SCANNER LOGIC =====
-$("#productInput")?.addEventListener("keydown", (e) => {
-  // Scanners automatically send an "Enter" key at the end of the barcode
-  if (e.key === "Enter") {
-    e.preventDefault(); // Stop the form from submitting immediately
-
-    const scannedCode = e.target.value.trim();
-    if (!scannedCode) return;
-
-    // Find the product in your cache by matching the barcode
-    const matchedProduct = productsCache.find((p) => p.barcode === scannedCode);
-
-    if (matchedProduct) {
-      // Auto-fill the form fields
-      $("#productId").value = matchedProduct.id;
-      $("#costInput").value = matchedProduct.cost_price;
-      $("#sellInput").value = matchedProduct.selling_price;
-      updateLiveProfit();
-      toast(`Scanned: ${matchedProduct.name}`);
-
-      // Move the cursor to the Quantity field so you can type the quantity
-      $('input[name="quantity"]').focus();
-      $('input[name="quantity"]').select();
-    } else {
-      toast(`Barcode ${scannedCode} not found in catalog`, "error");
-    }
-  }
-});
-// ========== REPLACE THE TWO #productInput keydown HANDLERS ==========
+// ===== PHYSICAL SCANNER & MANUAL INPUT (BULLETPROOF) =====
 $("#productInput")?.addEventListener("keydown", (e) => {
   if (e.key !== "Enter") return;
   e.preventDefault();
+
   const val = e.target.value.trim();
   if (!val) return;
 
-  // 1. Try barcode match
-  let product = productsCache.find(
-    (p) => p.barcode && String(p.barcode).trim() === val,
-  );
+  // Clean the input: remove dashes, spaces, and make uppercase
+  const cleanVal = val.replace(/[^A-Z0-9]/gi, "").toUpperCase();
 
-  // 2. Fuzzy barcode (ignore spaces/dashes/case)
-  if (!product) {
-    const clean = val.replace(/[^A-Z0-9]/gi, "").toUpperCase();
-    product = productsCache.find((p) => {
-      if (!p.barcode) return false;
-      return (
-        String(p.barcode)
-          .replace(/[^A-Z0-9]/gi, "")
-          .toUpperCase() === clean
-      );
-    });
-  }
+  // 1. Try fuzzy barcode match (ignores dashes, spaces, case)
+  let product = productsCache.find((p) => {
+    if (!p.barcode) return false;
+    const cleanStored = String(p.barcode)
+      .replace(/[^A-Z0-9]/gi, "")
+      .toUpperCase();
+    return cleanStored === cleanVal;
+  });
 
-  // 3. Fallback: name match
+  // 2. Fallback: exact name match
   if (!product) {
     product = productsCache.find(
       (p) => p.name.toLowerCase() === val.toLowerCase(),
@@ -683,7 +650,7 @@ $("#productInput")?.addEventListener("keydown", (e) => {
 
   if (product) {
     addToCart(product, 1);
-    e.target.value = "";
+    e.target.value = ""; // Clear the input for the next scan
     toast("Added: " + product.name);
   } else {
     toast(
@@ -692,7 +659,6 @@ $("#productInput")?.addEventListener("keydown", (e) => {
     );
   }
 });
-
 function updateLiveProfit() {
   const fd = new FormData($("#txnForm"));
   const qty = Number(fd.get("quantity")) || 0;
