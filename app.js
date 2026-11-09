@@ -1342,6 +1342,7 @@ document.getElementById("bulkFile")?.addEventListener("change", async (e) => {
 // ========== BARCODE SHEET EXPORT (SMALLER & OPTIMIZED) ==========
 // ========== BARCODE SHEET EXPORT (4 COLUMNS - SCANNER OPTIMIZED) ==========
 // ========== BARCODE SHEET EXPORT (SCANNER OPTIMIZED) ==========
+// ========== BARCODE SHEET EXPORT (SAV STICKER QUALITY) ==========
 document
   .getElementById("downloadBarcodeSheet")
   ?.addEventListener("click", () => {
@@ -1372,31 +1373,31 @@ document
       <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
       <style>
         @page { size: A4; margin: 10mm; }
-        body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; -webkit-print-color-adjust: exact; }
         .page { 
           display: grid; 
-          grid-template-columns: repeat(3, 1fr); /* 3 Columns */
-          gap: 12px; 
+          grid-template-columns: repeat(3, 1fr); 
+          gap: 15px; 
           page-break-after: always; 
         }
         .label { 
           border: 1px dashed #cbd5e1; 
-          padding: 8px 6px; 
+          padding: 10px 6px; 
           text-align: center; 
           page-break-inside: avoid; 
-          height: 100px; 
+          height: 110px; 
           display: flex; 
           flex-direction: column; 
           justify-content: center; 
           align-items: center; 
-          overflow: hidden;
           background: #fff; 
         }
-        .name { font-size: 11px; font-weight: bold; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
-        /* Forces SVG to scale perfectly without blurring */
-        .barcode-container svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
-        .code { font-size: 9px; font-family: monospace; margin-top: 4px; color: #000; font-weight: bold; }
-        .price { font-size: 10px; font-weight: bold; color: #333; margin-bottom: 2px; }
+        .name { font-size: 11px; font-weight: bold; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+        /* This forces the barcode to always stay at 100% scale */
+        .barcode-container { width: 100%; display: flex; justify-content: center; align-items: center; }
+        .barcode-container svg { max-width: 100%; height: auto; display: block; }
+        .code { font-size: 10px; font-family: monospace; margin-top: 5px; color: #000; font-weight: bold; letter-spacing: 1px; }
+        .price { font-size: 10px; font-weight: bold; color: #000; margin-bottom: 2px; }
         @media print {
           .label { border: none; }
         }
@@ -1407,7 +1408,7 @@ document
       <script>
         const labels = ${JSON.stringify(allLabels)};
         const container = document.getElementById("pages-container");
-        const labelsPerPage = 24; // 3 cols x 8 rows = 24 per page
+        const labelsPerPage = 21; // 3 cols x 7 rows = 21 per page
         
         let currentPage = document.createElement("div");
         currentPage.className = "page";
@@ -1420,7 +1421,7 @@ document
             container.appendChild(currentPage);
           }
 
-          // Clean the barcode text: remove dashes and spaces
+          // Clean the code: remove dashes and spaces completely
           const rawCode = p.barcode || "AUTO" + p.name.replace(/\W+/g, "").slice(0, 10).toUpperCase();
           const cleanCode = rawCode.replace(/[^A-Z0-9]/gi, "").toUpperCase(); 
           
@@ -1431,20 +1432,22 @@ document
           
           div.innerHTML = \`
             <div class="name">\${safeName.substring(0, 22)}</div>
-            <svg class="bc"></svg>
+            <div class="barcode-container">
+              <svg class="bc"></svg>
+            </div>
             <div class="price">₦\${p.selling_price}</div>
             <div class="code">\${cleanCode}</div>
           \`;
           currentPage.appendChild(div);
 
-          // Draw the barcode for the scanner
+          // Draw the barcode
           try {
             JsBarcode(div.querySelector("svg"), cleanCode, {
               format: "CODE128",
-              width: 1.8,      /* Good thickness */
-              height: 40,      /* Tall bars for laser scanners */
+              width: 2.0,     /* Thick bars like a Sav sticker */
+              height: 50,     /* Tall bars so the laser hits them easily */
               displayValue: false,
-              margin: 15       /* CRITICAL: 15px white space on sides for the scanner */
+              margin: 15      /* CRITICAL: The "Quiet Zone" (white space) */
             });
           } catch (e) {
             console.error(e);
