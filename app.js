@@ -1343,6 +1343,7 @@ document.getElementById("bulkFile")?.addEventListener("change", async (e) => {
 // ========== BARCODE SHEET EXPORT (4 COLUMNS - SCANNER OPTIMIZED) ==========
 // ========== BARCODE SHEET EXPORT (SCANNER OPTIMIZED) ==========
 // ========== BARCODE SHEET EXPORT (SAV STICKER QUALITY) ==========
+// ========== BARCODE SHEET EXPORT (SAV STICKER QUALITY + NAME) ==========
 document
   .getElementById("downloadBarcodeSheet")
   ?.addEventListener("click", () => {
@@ -1382,7 +1383,7 @@ document
         }
         .label { 
           border: 1px dashed #cbd5e1; 
-          padding: 10px 6px; 
+          padding: 8px 6px; 
           text-align: center; 
           page-break-inside: avoid; 
           height: 110px; 
@@ -1392,12 +1393,22 @@ document
           align-items: center; 
           background: #fff; 
         }
-        .name { font-size: 11px; font-weight: bold; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
-        /* This forces the barcode to always stay at 100% scale */
-        .barcode-container { width: 100%; display: flex; justify-content: center; align-items: center; }
+        /* Product Name Styling */
+        .name { 
+          font-size: 12px; 
+          font-weight: bold; 
+          margin-bottom: 4px; 
+          white-space: nowrap; 
+          overflow: hidden; 
+          text-overflow: ellipsis; 
+          width: 100%; 
+          color: #000;
+        }
+        /* Forces the barcode to stay at 100% scale */
+        .barcode-container { width: 100%; display: flex; justify-content: center; align-items: center; margin: 2px 0; }
         .barcode-container svg { max-width: 100%; height: auto; display: block; }
-        .code { font-size: 10px; font-family: monospace; margin-top: 5px; color: #000; font-weight: bold; letter-spacing: 1px; }
-        .price { font-size: 10px; font-weight: bold; color: #000; margin-bottom: 2px; }
+        .code { font-size: 10px; font-family: monospace; margin-top: 2px; color: #000; font-weight: bold; letter-spacing: 1px; }
+        .price { font-size: 11px; font-weight: bold; color: #000; margin-top: 2px; }
         @media print {
           .label { border: none; }
         }
@@ -1431,7 +1442,7 @@ document
           const safeName = String(p.name).replace(/[<>&'"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'})[c]);
           
           div.innerHTML = \`
-            <div class="name">\${safeName.substring(0, 22)}</div>
+            <div class="name">\${safeName.substring(0, 25)}</div>
             <div class="barcode-container">
               <svg class="bc"></svg>
             </div>
@@ -1445,7 +1456,7 @@ document
             JsBarcode(div.querySelector("svg"), cleanCode, {
               format: "CODE128",
               width: 2.0,     /* Thick bars like a Sav sticker */
-              height: 50,     /* Tall bars so the laser hits them easily */
+              height: 45,     /* Tall bars so the laser hits them easily */
               displayValue: false,
               margin: 15      /* CRITICAL: The "Quiet Zone" (white space) */
             });
