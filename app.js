@@ -622,29 +622,30 @@ function handleProductInput() {
 }
 
 // ===== PHYSICAL SCANNER & MANUAL INPUT (BULLETPROOF) =====
+// ===== PHYSICAL SCANNER & MANUAL INPUT (BULLETPROOF) =====
 $("#productInput")?.addEventListener("keydown", (e) => {
   if (e.key !== "Enter") return;
   e.preventDefault();
 
-  const val = e.target.value.trim();
-  if (!val) return;
+  // 1. Get the value and remove ALL invisible spaces, line breaks, and dashes
+  const rawVal = e.target.value;
+  const cleanVal = rawVal.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
 
-  // Clean the input: remove dashes, spaces, and make uppercase
-  const cleanVal = val.replace(/[^A-Z0-9]/gi, "").toUpperCase();
+  if (!cleanVal) return;
 
-  // 1. Try fuzzy barcode match (ignores dashes, spaces, case)
+  // 2. Try fuzzy barcode match (ignores dashes, spaces, case)
   let product = productsCache.find((p) => {
     if (!p.barcode) return false;
     const cleanStored = String(p.barcode)
-      .replace(/[^A-Z0-9]/gi, "")
+      .replace(/[^A-Za-z0-9]/g, "")
       .toUpperCase();
     return cleanStored === cleanVal;
   });
 
-  // 2. Fallback: exact name match
+  // 3. Fallback: exact name match
   if (!product) {
     product = productsCache.find(
-      (p) => p.name.toLowerCase() === val.toLowerCase(),
+      (p) => p.name.toLowerCase() === rawVal.trim().toLowerCase(),
     );
   }
 
@@ -654,11 +655,12 @@ $("#productInput")?.addEventListener("keydown", (e) => {
     toast("Added: " + product.name);
   } else {
     toast(
-      "Product not found — scan a saved barcode or type exact name.",
+      "Product not found. Ensure the barcode matches exactly in Products.",
       "error",
     );
   }
 });
+
 function updateLiveProfit() {
   const fd = new FormData($("#txnForm"));
   const qty = Number(fd.get("quantity")) || 0;
@@ -1339,6 +1341,7 @@ document.getElementById("bulkFile")?.addEventListener("change", async (e) => {
 
 // ========== BARCODE SHEET EXPORT (SMALLER & OPTIMIZED) ==========
 // ========== BARCODE SHEET EXPORT (4 COLUMNS - SCANNER OPTIMIZED) ==========
+// ========== BARCODE SHEET EXPORT (SCANNER OPTIMIZED) ==========
 document
   .getElementById("downloadBarcodeSheet")
   ?.addEventListener("click", () => {
@@ -1368,19 +1371,20 @@ document
       <title>Barcode Print Sheet</title>
       <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
       <style>
-        @page { size: A4; margin: 10mm; } /* Slightly larger page margin for better printing */
+        @page { size: A4; margin: 10mm; }
         body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
         .page { 
           display: grid; 
-          grid-template-columns: repeat(3, 1fr); /* 3 COLUMNS */
-          gap: 15px; /* Increased space between labels */
+          grid-template-columns: repeat(3, 1fr); /* 3 Columns */
+          gap: 12px; 
           page-break-after: always; 
         }
         .label { 
           border: 1px dashed #cbd5e1; 
-          padding: 10px 5px; /* More vertical padding */
+          padding: 8px 6px; 
           text-align: center; 
           page-break-inside: avoid; 
+          height: 100px; 
           display: flex; 
           flex-direction: column; 
           justify-content: center; 
@@ -1389,10 +1393,10 @@ document
           background: #fff; 
         }
         .name { font-size: 11px; font-weight: bold; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
-        /* Forces SVG to fit perfectly in the column */
+        /* Forces SVG to scale perfectly without blurring */
         .barcode-container svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
-        .code { font-size: 8.5px; font-family: monospace; margin-top: 4px; color: #333; }
-        .price { font-size: 10px; font-weight: bold; color: #000; margin-bottom: 2px; }
+        .code { font-size: 9px; font-family: monospace; margin-top: 4px; color: #000; font-weight: bold; }
+        .price { font-size: 10px; font-weight: bold; color: #333; margin-bottom: 2px; }
         @media print {
           .label { border: none; }
         }
@@ -1416,7 +1420,9 @@ document
             container.appendChild(currentPage);
           }
 
-          const code = p.barcode || "AUTO-" + p.name.replace(/\\W+/g, "").slice(0, 10).toUpperCase();
+          // Clean the barcode text: remove dashes and spaces
+          const rawCode = p.barcode || "AUTO" + p.name.replace(/\W+/g, "").slice(0, 10).toUpperCase();
+          const cleanCode = rawCode.replace(/[^A-Z0-9]/gi, "").toUpperCase(); 
           
           const div = document.createElement("div");
           div.className = "label";
@@ -1427,18 +1433,18 @@ document
             <div class="name">\${safeName.substring(0, 22)}</div>
             <svg class="bc"></svg>
             <div class="price">₦\${p.selling_price}</div>
-            <div class="code">\${code}</div>
+            <div class="code">\${cleanCode}</div>
           \`;
           currentPage.appendChild(div);
 
-          // Draw the barcode
+          // Draw the barcode for the scanner
           try {
-            JsBarcode(div.querySelector("svg"), code, {
+            JsBarcode(div.querySelector("svg"), cleanCode, {
               format: "CODE128",
-              width: 2,      /* CRITICAL FIX: Thicker bars for better scanning */
-              height: 45,    /* Taller bars */
+              width: 1.8,      /* Good thickness */
+              height: 40,      /* Tall bars for laser scanners */
               displayValue: false,
-              margin: 0      /* Removed internal margin so it fits the 3-column space */
+              margin: 15       /* CRITICAL: 15px white space on sides for the scanner */
             });
           } catch (e) {
             console.error(e);
