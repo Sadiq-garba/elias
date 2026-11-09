@@ -1402,31 +1402,31 @@ document
       <title>Barcode Print Sheet</title>
       <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
       <style>
-        @page { size: A4; margin: 6mm; } /* Reduced page margin to fit more */
+        @page { size: A4; margin: 10mm; } /* Slightly larger page margin for better printing */
         body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
         .page { 
           display: grid; 
-          grid-template-columns: repeat(4, 1fr); /* 4 COLUMNS */
-          gap: 8px; /* Space between labels */
+          grid-template-columns: repeat(3, 1fr); /* 3 COLUMNS */
+          gap: 15px; /* Increased space between labels */
           page-break-after: always; 
         }
         .label { 
           border: 1px dashed #cbd5e1; 
-          padding: 6px 4px; 
+          padding: 10px 5px; /* More vertical padding */
           text-align: center; 
           page-break-inside: avoid; 
-          height: 85px; 
           display: flex; 
           flex-direction: column; 
           justify-content: center; 
           align-items: center; 
           overflow: hidden;
-          background: #fff; /* Forces white background for scanner */
+          background: #fff; 
         }
-        .name { font-size: 9.5px; font-weight: bold; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+        .name { font-size: 11px; font-weight: bold; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+        /* Forces SVG to fit perfectly in the column */
         .barcode-container svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
-        .code { font-size: 7.5px; font-family: monospace; margin-top: 2px; color: #333; }
-        .price { font-size: 8.5px; color: #333; margin-bottom: 1px; }
+        .code { font-size: 8.5px; font-family: monospace; margin-top: 4px; color: #333; }
+        .price { font-size: 10px; font-weight: bold; color: #000; margin-bottom: 2px; }
         @media print {
           .label { border: none; }
         }
@@ -1437,7 +1437,7 @@ document
       <script>
         const labels = ${JSON.stringify(allLabels)};
         const container = document.getElementById("pages-container");
-        const labelsPerPage = 32; // 4 cols x 8 rows = 32 per page
+        const labelsPerPage = 24; // 3 cols x 8 rows = 24 per page
         
         let currentPage = document.createElement("div");
         currentPage.className = "page";
@@ -1458,7 +1458,7 @@ document
           const safeName = String(p.name).replace(/[<>&'"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'})[c]);
           
           div.innerHTML = \`
-            <div class="name">\${safeName.substring(0, 20)}</div>
+            <div class="name">\${safeName.substring(0, 22)}</div>
             <svg class="bc"></svg>
             <div class="price">₦\${p.selling_price}</div>
             <div class="code">\${code}</div>
@@ -1469,10 +1469,10 @@ document
           try {
             JsBarcode(div.querySelector("svg"), code, {
               format: "CODE128",
-              width: 1.1,    /* Thin bars to fit 4 columns */
-              height: 28,    /* Bar height */
+              width: 2,      /* CRITICAL FIX: Thicker bars for better scanning */
+              height: 45,    /* Taller bars */
               displayValue: false,
-              margin: 10     /* CRITICAL: Quiet zone for the scanner */
+              margin: 0      /* Removed internal margin so it fits the 3-column space */
             });
           } catch (e) {
             console.error(e);
