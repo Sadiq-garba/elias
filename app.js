@@ -358,23 +358,20 @@ function renderProductTable() {
 
   const hideStyle = isProfitRevealed ? "" : "none";
 
-  // Hide/Show table headers
-  $$("#productTable th:nth-child(3)").forEach(
-    (el) => (el.style.display = hideStyle),
-  ); // Cost Price
-  $$("#productTable th:nth-child(5)").forEach(
-    (el) => (el.style.display = hideStyle),
-  ); // Profit / Unit
+  // Hide/Show table headers (Cost, Profit, Actions)
+  [3, 5, 6].forEach((n) => {
+    $$(`#productTable th:nth-child(${n})`).forEach(
+      (el) => (el.style.display = hideStyle),
+    );
+  });
 
-  // Hide/Show table cells
-  $$("#productTable td:nth-child(3)").forEach(
-    (el) => (el.style.display = hideStyle),
-  ); // Cost Price
-  $$("#productTable td:nth-child(5)").forEach(
-    (el) => (el.style.display = hideStyle),
-  ); // Profit / Unit
+  // Hide/Show table cells (Cost, Profit, Actions)
+  [3, 5, 6].forEach((n) => {
+    $$(`#productTable td:nth-child(${n})`).forEach(
+      (el) => (el.style.display = hideStyle),
+    );
+  });
 }
-
 // NEW: Calculate and show inventory totals
 // NEW: Calculate and show inventory totals
 // NEW: Calculate and show inventory totals
