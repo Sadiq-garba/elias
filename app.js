@@ -1373,16 +1373,18 @@ document
       <title>Barcode Print Sheet</title>
       <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
       <style>
-        @page { size: A4; margin: 5mm; } /* Reduced page margin to give more room */
+        @page { size: A4; margin: 5mm; }
         body { font-family: Arial, sans-serif; margin: 0; padding: 0; -webkit-print-color-adjust: exact; }
         
-        /* 5 COLUMNS */
+        /* 5 COLUMNS x 8 ROWS */
         .page { 
           display: grid; 
           grid-template-columns: repeat(5, 1fr); 
-          gap: 5px; 
+          gap: 4px; 
           page-break-after: always; 
-          grid-auto-rows: 1fr; /* Makes rows equal height */
+          /* FIX: Use fixed height for rows instead of 1fr */
+          grid-auto-rows: 33mm; 
+          align-content: start; 
         }
 
         .label { 
@@ -1396,9 +1398,10 @@ document
           align-items: center; 
           background: #fff; 
           overflow: hidden;
+          height: 100%;
+          box-sizing: border-box;
         }
 
-        /* Product Name - Allows up to 2 lines */
         .name { 
           font-size: 8px; 
           font-weight: bold; 
@@ -1409,7 +1412,7 @@ document
           max-height: 18px; 
           overflow: hidden;
           display: -webkit-box;
-          -webkit-line-clamp: 2; /* Shows full text over 2 lines */
+          -webkit-line-clamp: 2; 
           -webkit-box-orient: vertical;
           word-break: break-word;
         }
@@ -1430,7 +1433,9 @@ document
       <script>
         const labels = ${JSON.stringify(allLabels)};
         const container = document.getElementById("pages-container");
-        const labelsPerPage = 30; // 5 cols x 6 rows = 30 per page
+        
+        // FIX: Change to 40 per page (5 columns x 8 rows)
+        const labelsPerPage = 40; 
         
         let currentPage = document.createElement("div");
         currentPage.className = "page";
@@ -1443,7 +1448,6 @@ document
             container.appendChild(currentPage);
           }
 
-          // Clean the code: remove dashes and spaces completely
           const rawCode = p.barcode || "AUTO" + p.name.replace(/\\W+/g, "").slice(0, 10).toUpperCase();
           const cleanCode = rawCode.replace(/[^A-Z0-9]/gi, "").toUpperCase(); 
           
@@ -1452,7 +1456,6 @@ document
           
           const safeName = String(p.name).replace(/[<>&'"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'})[c]);
           
-          // REMOVED .substring(0,20) so the full name is passed to the DOM
           div.innerHTML = \`
             <div class="name">\${safeName}</div>
             <div class="barcode-container">
@@ -1463,14 +1466,13 @@ document
           \`;
           currentPage.appendChild(div);
 
-          // Draw the barcode - tuned for 5-column layout
           try {
             JsBarcode(div.querySelector("svg"), cleanCode, {
               format: "CODE128",
-              width: 1.2,     /* Slightly thinner bars to fit 5 columns */
-              height: 30,     /* Kept tall enough for laser scanners */
+              width: 1.2,     
+              height: 25,     /* Adjusted height to fit perfectly */
               displayValue: false,
-              margin: 4       /* Reduced quiet zone so it doesn't overflow horizontally */
+              margin: 2       /* Tight margin to maximize space */
             });
           } catch (e) {
             console.error(e);
