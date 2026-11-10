@@ -1373,56 +1373,46 @@ document
       <title>Barcode Print Sheet</title>
       <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
       <style>
-        @page { size: A4; margin: 5mm; }
+        @page { size: A4; margin: 8mm; }
         body { font-family: Arial, sans-serif; margin: 0; padding: 0; -webkit-print-color-adjust: exact; }
-        
-        /* 5 COLUMNS x 8 ROWS */
-        .page { 
-          display: grid; 
-          grid-template-columns: repeat(5, 1fr); 
-          gap: 4px; 
-          page-break-after: always; 
-          /* FIX: Use fixed height for rows instead of 1fr */
-          grid-auto-rows: 33mm; 
-          align-content: start; 
-        }
+        /* Use grid for the page */
+    .page { 
+      display: grid; 
+      grid-template-columns: repeat(4, 1fr); 
+      gap: 8px; 
+      page-break-after: always; 
+      /* This makes all rows on the page the exact same height */
+      grid-auto-rows: 1fr; 
+    }
 
-        .label { 
-          border: 1px dashed #cbd5e1; 
-          padding: 3px 2px; 
-          text-align: center; 
-          page-break-inside: avoid; 
-          display: flex; 
-          flex-direction: column; 
-          justify-content: space-between; 
-          align-items: center; 
-          background: #fff; 
-          overflow: hidden;
-          height: 100%;
-          box-sizing: border-box;
-        }
-
+      .label { 
+        border: 1px dashed #cbd5e1; 
+        padding: 4px 3px; 
+        text-align: center; 
+        page-break-inside: avoid; 
+        /* Removed fixed height so it doesn't cut off text */
+        display: flex; 
+        flex-direction: column; 
+        justify-content: space-between; /* Pushes items nicely */
+        align-items: center; 
+        background: #fff; 
+        overflow: hidden;
+      }
+        /* Product Name Styling */
         .name { 
-          font-size: 8px; 
+          font-size: 9px; 
           font-weight: bold; 
           margin-bottom: 2px; 
+          white-space: nowrap; 
+          overflow: hidden; 
+          text-overflow: ellipsis; 
           width: 100%; 
           color: #000;
-          line-height: 1.1;
-          max-height: 18px; 
-          overflow: hidden;
-          display: -webkit-box;
-          -webkit-line-clamp: 2; 
-          -webkit-box-orient: vertical;
-          word-break: break-word;
         }
-
         .barcode-container { width: 100%; display: flex; justify-content: center; align-items: center; margin: 1px 0; }
         .barcode-container svg { max-width: 100%; height: auto; display: block; }
-        
+        .code { font-size: 7px; font-family: monospace; margin-top: 1px; color: #000; font-weight: bold; letter-spacing: 0.5px; }
         .price { font-size: 8px; font-weight: bold; color: #000; margin-top: 1px; }
-        .code { font-size: 6px; font-family: monospace; margin-top: 1px; color: #000; font-weight: bold; letter-spacing: 0.5px; }
-        
         @media print {
           .label { border: none; }
         }
@@ -1433,9 +1423,7 @@ document
       <script>
         const labels = ${JSON.stringify(allLabels)};
         const container = document.getElementById("pages-container");
-        
-        // FIX: Change to 40 per page (5 columns x 8 rows)
-        const labelsPerPage = 40; 
+        const labelsPerPage = 32; // 4 cols x 8 rows = 32 per page
         
         let currentPage = document.createElement("div");
         currentPage.className = "page";
@@ -1448,6 +1436,7 @@ document
             container.appendChild(currentPage);
           }
 
+          // Clean the code: remove dashes and spaces completely
           const rawCode = p.barcode || "AUTO" + p.name.replace(/\\W+/g, "").slice(0, 10).toUpperCase();
           const cleanCode = rawCode.replace(/[^A-Z0-9]/gi, "").toUpperCase(); 
           
@@ -1457,7 +1446,7 @@ document
           const safeName = String(p.name).replace(/[<>&'"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'})[c]);
           
           div.innerHTML = \`
-            <div class="name">\${safeName}</div>
+            <div class="name">\${safeName.substring(0, 20)}</div>
             <div class="barcode-container">
               <svg class="bc"></svg>
             </div>
@@ -1466,13 +1455,14 @@ document
           \`;
           currentPage.appendChild(div);
 
+          // Draw the barcode - smaller for 4-column layout
           try {
             JsBarcode(div.querySelector("svg"), cleanCode, {
               format: "CODE128",
-              width: 1.2,     
-              height: 25,     /* Adjusted height to fit perfectly */
+              width: 1.3,     /* Thinner bars for smaller labels */
+              height: 26,     /* Shorter bars but still scannable */
               displayValue: false,
-              margin: 2       /* Tight margin to maximize space */
+              margin: 8       /* Reduced quiet zone */
             });
           } catch (e) {
             console.error(e);
