@@ -39,7 +39,8 @@ let currentUser = null;
 let productsCache = [];
 let saleCart = [];
 let isProfitRevealed = false;
-const MANAGER_PIN = "7290";
+
+const MANAGER_PIN = "1996";
 
 function showLogin() {
   $("#loginScreen").classList.remove("hidden");
