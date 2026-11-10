@@ -1455,7 +1455,7 @@ document
             JsBarcode(div.querySelector("svg"), cleanCode, {
               format: "CODE128",
               width: 1.3,     /* Thinner bars for smaller labels */
-              height: 32,     /* Shorter bars but still scannable */
+              height: 26,     /* Shorter bars but still scannable */
               displayValue: false,
               margin: 8       /* Reduced quiet zone */
             });
