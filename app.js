@@ -1373,46 +1373,53 @@ document
       <title>Barcode Print Sheet</title>
       <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
       <style>
-        @page { size: A4; margin: 8mm; }
+        @page { size: A4; margin: 5mm; } /* Reduced page margin to give more room */
         body { font-family: Arial, sans-serif; margin: 0; padding: 0; -webkit-print-color-adjust: exact; }
-        /* Use grid for the page */
-    .page { 
-      display: grid; 
-      grid-template-columns: repeat(4, 1fr); 
-      gap: 8px; 
-      page-break-after: always; 
-      /* This makes all rows on the page the exact same height */
-      grid-auto-rows: 1fr; 
-    }
+        
+        /* 5 COLUMNS */
+        .page { 
+          display: grid; 
+          grid-template-columns: repeat(5, 1fr); 
+          gap: 5px; 
+          page-break-after: always; 
+          grid-auto-rows: 1fr; /* Makes rows equal height */
+        }
 
-      .label { 
-        border: 1px dashed #cbd5e1; 
-        padding: 4px 3px; 
-        text-align: center; 
-        page-break-inside: avoid; 
-        /* Removed fixed height so it doesn't cut off text */
-        display: flex; 
-        flex-direction: column; 
-        justify-content: space-between; /* Pushes items nicely */
-        align-items: center; 
-        background: #fff; 
-        overflow: hidden;
-      }
-        /* Product Name Styling */
+        .label { 
+          border: 1px dashed #cbd5e1; 
+          padding: 3px 2px; 
+          text-align: center; 
+          page-break-inside: avoid; 
+          display: flex; 
+          flex-direction: column; 
+          justify-content: space-between; 
+          align-items: center; 
+          background: #fff; 
+          overflow: hidden;
+        }
+
+        /* Product Name - Allows up to 2 lines */
         .name { 
-          font-size: 9px; 
+          font-size: 8px; 
           font-weight: bold; 
           margin-bottom: 2px; 
-          white-space: nowrap; 
-          overflow: hidden; 
-          text-overflow: ellipsis; 
           width: 100%; 
           color: #000;
+          line-height: 1.1;
+          max-height: 18px; 
+          overflow: hidden;
+          display: -webkit-box;
+          -webkit-line-clamp: 2; /* Shows full text over 2 lines */
+          -webkit-box-orient: vertical;
+          word-break: break-word;
         }
+
         .barcode-container { width: 100%; display: flex; justify-content: center; align-items: center; margin: 1px 0; }
         .barcode-container svg { max-width: 100%; height: auto; display: block; }
-        .code { font-size: 7px; font-family: monospace; margin-top: 1px; color: #000; font-weight: bold; letter-spacing: 0.5px; }
+        
         .price { font-size: 8px; font-weight: bold; color: #000; margin-top: 1px; }
+        .code { font-size: 6px; font-family: monospace; margin-top: 1px; color: #000; font-weight: bold; letter-spacing: 0.5px; }
+        
         @media print {
           .label { border: none; }
         }
@@ -1423,7 +1430,7 @@ document
       <script>
         const labels = ${JSON.stringify(allLabels)};
         const container = document.getElementById("pages-container");
-        const labelsPerPage = 32; // 4 cols x 8 rows = 32 per page
+        const labelsPerPage = 30; // 5 cols x 6 rows = 30 per page
         
         let currentPage = document.createElement("div");
         currentPage.className = "page";
@@ -1445,8 +1452,9 @@ document
           
           const safeName = String(p.name).replace(/[<>&'"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'})[c]);
           
+          // REMOVED .substring(0,20) so the full name is passed to the DOM
           div.innerHTML = \`
-            <div class="name">\${safeName.substring(0, 20)}</div>
+            <div class="name">\${safeName}</div>
             <div class="barcode-container">
               <svg class="bc"></svg>
             </div>
@@ -1455,14 +1463,14 @@ document
           \`;
           currentPage.appendChild(div);
 
-          // Draw the barcode - smaller for 4-column layout
+          // Draw the barcode - tuned for 5-column layout
           try {
             JsBarcode(div.querySelector("svg"), cleanCode, {
               format: "CODE128",
-              width: 1.3,     /* Thinner bars for smaller labels */
-              height: 26,     /* Shorter bars but still scannable */
+              width: 1.2,     /* Slightly thinner bars to fit 5 columns */
+              height: 30,     /* Kept tall enough for laser scanners */
               displayValue: false,
-              margin: 8       /* Reduced quiet zone */
+              margin: 4       /* Reduced quiet zone so it doesn't overflow horizontally */
             });
           } catch (e) {
             console.error(e);
