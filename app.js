@@ -1375,24 +1375,29 @@ document
       <style>
         @page { size: A4; margin: 8mm; }
         body { font-family: Arial, sans-serif; margin: 0; padding: 0; -webkit-print-color-adjust: exact; }
-        .page { 
-          display: grid; 
-          grid-template-columns: repeat(4, 1fr); 
-          gap: 8px; 
-          page-break-after: always; 
-        }
-        .label { 
-          border: 1px dashed #cbd5e1; 
-          padding: 4px 3px; 
-          text-align: center; 
-          page-break-inside: avoid; 
-          height: 78px; 
-          display: flex; 
-          flex-direction: column; 
-          justify-content: center; 
-          align-items: center; 
-          background: #fff; 
-        }
+        /* Use grid for the page */
+    .page { 
+      display: grid; 
+      grid-template-columns: repeat(4, 1fr); 
+      gap: 8px; 
+      page-break-after: always; 
+      /* This makes all rows on the page the exact same height */
+      grid-auto-rows: 1fr; 
+    }
+
+      .label { 
+        border: 1px dashed #cbd5e1; 
+        padding: 4px 3px; 
+        text-align: center; 
+        page-break-inside: avoid; 
+        /* Removed fixed height so it doesn't cut off text */
+        display: flex; 
+        flex-direction: column; 
+        justify-content: space-between; /* Pushes items nicely */
+        align-items: center; 
+        background: #fff; 
+        overflow: hidden;
+      }
         /* Product Name Styling */
         .name { 
           font-size: 9px; 
