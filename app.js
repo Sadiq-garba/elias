@@ -1373,20 +1373,20 @@ document
       <title>Barcode Print Sheet</title>
       <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
       <style>
-        @page { size: A4; margin: 10mm; }
+        @page { size: A4; margin: 8mm; }
         body { font-family: Arial, sans-serif; margin: 0; padding: 0; -webkit-print-color-adjust: exact; }
         .page { 
           display: grid; 
-          grid-template-columns: repeat(3, 1fr); 
-          gap: 15px; 
+          grid-template-columns: repeat(4, 1fr); 
+          gap: 8px; 
           page-break-after: always; 
         }
         .label { 
           border: 1px dashed #cbd5e1; 
-          padding: 8px 6px; 
+          padding: 4px 3px; 
           text-align: center; 
           page-break-inside: avoid; 
-          height: 110px; 
+          height: 78px; 
           display: flex; 
           flex-direction: column; 
           justify-content: center; 
@@ -1395,20 +1395,19 @@ document
         }
         /* Product Name Styling */
         .name { 
-          font-size: 12px; 
+          font-size: 9px; 
           font-weight: bold; 
-          margin-bottom: 4px; 
+          margin-bottom: 2px; 
           white-space: nowrap; 
           overflow: hidden; 
           text-overflow: ellipsis; 
           width: 100%; 
           color: #000;
         }
-        /* Forces the barcode to stay at 100% scale */
-        .barcode-container { width: 100%; display: flex; justify-content: center; align-items: center; margin: 2px 0; }
+        .barcode-container { width: 100%; display: flex; justify-content: center; align-items: center; margin: 1px 0; }
         .barcode-container svg { max-width: 100%; height: auto; display: block; }
-        .code { font-size: 10px; font-family: monospace; margin-top: 2px; color: #000; font-weight: bold; letter-spacing: 1px; }
-        .price { font-size: 11px; font-weight: bold; color: #000; margin-top: 2px; }
+        .code { font-size: 7px; font-family: monospace; margin-top: 1px; color: #000; font-weight: bold; letter-spacing: 0.5px; }
+        .price { font-size: 8px; font-weight: bold; color: #000; margin-top: 1px; }
         @media print {
           .label { border: none; }
         }
@@ -1419,7 +1418,7 @@ document
       <script>
         const labels = ${JSON.stringify(allLabels)};
         const container = document.getElementById("pages-container");
-        const labelsPerPage = 21; // 3 cols x 7 rows = 21 per page
+        const labelsPerPage = 32; // 4 cols x 8 rows = 32 per page
         
         let currentPage = document.createElement("div");
         currentPage.className = "page";
@@ -1433,7 +1432,7 @@ document
           }
 
           // Clean the code: remove dashes and spaces completely
-          const rawCode = p.barcode || "AUTO" + p.name.replace(/\W+/g, "").slice(0, 10).toUpperCase();
+          const rawCode = p.barcode || "AUTO" + p.name.replace(/\\W+/g, "").slice(0, 10).toUpperCase();
           const cleanCode = rawCode.replace(/[^A-Z0-9]/gi, "").toUpperCase(); 
           
           const div = document.createElement("div");
@@ -1442,7 +1441,7 @@ document
           const safeName = String(p.name).replace(/[<>&'"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'})[c]);
           
           div.innerHTML = \`
-            <div class="name">\${safeName.substring(0, 25)}</div>
+            <div class="name">\${safeName.substring(0, 20)}</div>
             <div class="barcode-container">
               <svg class="bc"></svg>
             </div>
@@ -1451,14 +1450,14 @@ document
           \`;
           currentPage.appendChild(div);
 
-          // Draw the barcode
+          // Draw the barcode - smaller for 4-column layout
           try {
             JsBarcode(div.querySelector("svg"), cleanCode, {
               format: "CODE128",
-              width: 2.0,     /* Thick bars like a Sav sticker */
-              height: 45,     /* Tall bars so the laser hits them easily */
+              width: 1.3,     /* Thinner bars for smaller labels */
+              height: 32,     /* Shorter bars but still scannable */
               displayValue: false,
-              margin: 15      /* CRITICAL: The "Quiet Zone" (white space) */
+              margin: 8       /* Reduced quiet zone */
             });
           } catch (e) {
             console.error(e);
