@@ -825,6 +825,41 @@ $("#dashboardDate").value = todayISO();
 $("#dashboardDate").addEventListener("change", loadDashboard);
 
 // ========== HELPERS ==========
+
+// ========== INVENTORY SUMMARY ==========
+function updateInventorySummary(products) {
+  let totalItems = 0;
+  let totalCost = 0;
+  let lowStockCount = 0;
+
+  products.forEach((p) => {
+    // 1. Safely get the stock (default to 0 if it's text or empty)
+    let stock = Number(p.unit);
+    if (isNaN(stock)) stock = 0;
+
+    // 2. Safely get the cost (default to 0 if empty)
+    let cost = Number(p.cost_price);
+    if (isNaN(cost)) cost = 0;
+
+    totalItems += stock;
+    totalCost += stock * cost;
+
+    // 3. Count low stock
+    if (stock <= 5) {
+      lowStockCount++;
+    }
+  });
+
+  // 4. Update the DOM elements
+  const itemsEl = document.getElementById("invTotalItems");
+  const valueEl = document.getElementById("invTotalValue");
+  const lowStockEl = document.getElementById("invLowStock");
+
+  if (itemsEl) itemsEl.textContent = totalItems.toLocaleString();
+  if (valueEl) valueEl.textContent = money(totalCost);
+  if (lowStockEl) lowStockEl.textContent = lowStockCount;
+}
+
 function escapeHtml(s) {
   return String(s ?? "").replace(
     /[&<>"']/g,
