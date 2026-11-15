@@ -39,6 +39,7 @@ let currentUser = null;
 let productsCache = [];
 let saleCart = [];
 let isProfitRevealed = false;
+let isStockRevealed = false;
 
 const MANAGER_PIN = "1996";
 
@@ -833,33 +834,68 @@ function updateInventorySummary(products) {
   let lowStockCount = 0;
 
   products.forEach((p) => {
-    // 1. Safely get the stock (default to 0 if it's text or empty)
     let stock = Number(p.unit);
     if (isNaN(stock)) stock = 0;
 
-    // 2. Safely get the cost (default to 0 if empty)
     let cost = Number(p.cost_price);
     if (isNaN(cost)) cost = 0;
 
     totalItems += stock;
     totalCost += stock * cost;
 
-    // 3. Count low stock
     if (stock <= 5) {
       lowStockCount++;
     }
   });
 
-  // 4. Update the DOM elements
   const itemsEl = document.getElementById("invTotalItems");
   const valueEl = document.getElementById("invTotalValue");
   const lowStockEl = document.getElementById("invLowStock");
 
-  if (itemsEl) itemsEl.textContent = totalItems.toLocaleString();
-  if (valueEl) valueEl.textContent = money(totalCost);
-  if (lowStockEl) lowStockEl.textContent = lowStockCount;
-}
+  // If revealed, show the real numbers. Otherwise, show bullets (••••)
+  if (itemsEl)
+    itemsEl.textContent = isStockRevealed
+      ? totalItems.toLocaleString()
+      : "••••";
+  if (valueEl)
+    valueEl.textContent = isStockRevealed ? money(totalCost) : "₦••••";
+  if (lowStockEl) lowStockEl.textContent = lowStockCount; // Keep low stock always visible
 
+  // Add click event to toggle visibility (only add it once to avoid duplicates)
+  const itemsCard = itemsEl?.parentElement;
+  const valueCard = valueEl?.parentElement;
+
+  const handleToggle = () => {
+    if (isStockRevealed) {
+      isStockRevealed = false;
+      updateInventorySummary(productsCache); // Refresh UI
+      return;
+    }
+
+    const enteredPin = prompt("Enter Manager PIN to view Stock & Cost Value:");
+    if (enteredPin === null) return; // User cancelled
+
+    if (enteredPin === MANAGER_PIN) {
+      isStockRevealed = true;
+      updateInventorySummary(productsCache); // Refresh UI
+      toast("Stock Value unlocked");
+    } else {
+      toast("Incorrect PIN", "error");
+    }
+  };
+
+  if (itemsCard && !itemsCard.dataset.hasListener) {
+    itemsCard.style.cursor = "pointer";
+    itemsCard.addEventListener("click", handleToggle);
+    itemsCard.dataset.hasListener = "true";
+  }
+
+  if (valueCard && !valueCard.dataset.hasListener) {
+    valueCard.style.cursor = "pointer";
+    valueCard.addEventListener("click", handleToggle);
+    valueCard.dataset.hasListener = "true";
+  }
+}
 function escapeHtml(s) {
   return String(s ?? "").replace(
     /[&<>"']/g,
