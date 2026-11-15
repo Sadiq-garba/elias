@@ -954,14 +954,11 @@ function renderCart() {
   let html = "";
   let totalQty = 0;
   let totalAmount = 0;
-  let totalProfit = 0;
 
   saleCart.forEach((item) => {
     const lineTotal = item.selling_price * item.quantity;
-    const lineProfit = (item.selling_price - item.cost_price) * item.quantity;
     totalQty += item.quantity;
     totalAmount += lineTotal;
-    totalProfit += lineProfit;
 
     html += `
       <div style="display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid #f1f5f9;">
@@ -969,7 +966,6 @@ function renderCart() {
           <div style="font-weight:600; font-size:13px;">${escapeHtml(item.product_name)}</div>
           <div style="font-size:11.5px; color:#64748b;">
             ${money(item.selling_price)} × ${item.quantity} = <strong>${money(lineTotal)}</strong>
-            · profit <span class="text-green">${money(lineProfit)}</span>
           </div>
         </div>
         <input
@@ -988,7 +984,9 @@ function renderCart() {
   });
 
   container.innerHTML = html;
-  summary.textContent = `${totalQty} item(s) · Total ${money(totalAmount)} · Profit ${money(totalProfit)}`;
+
+  // Removed the Profit calculation from the summary text
+  summary.textContent = `${totalQty} item(s) · Total ${money(totalAmount)}`;
 
   // Wire qty inputs
   container.querySelectorAll("[data-cart-qty]").forEach((input) => {
