@@ -374,16 +374,29 @@ function openProductModal(product = null) {
   const f = $("#productForm");
   f.reset();
   $("#productIdEdit").value = product?.id || "";
+
+  const barcodeInput = $("#productBarcodeInput");
+
   if (product) {
+    // EDITING EXISTING PRODUCT
     f.name.value = product.name;
     f.unit.value = product.unit || "pcs";
     f.cost_price.value = product.cost_price;
     f.selling_price.value = product.selling_price;
-    if (f.barcode) f.barcode.value = product.barcode || "";
+    if (barcodeInput) barcodeInput.value = product.barcode || "";
+  } else {
+    // ADDING NEW PRODUCT - Auto-generate unique code silently
+    if (barcodeInput) {
+      // Generates something like PROD-12345
+      barcodeInput.value = generateBarcode(
+        "PROD",
+        Math.floor(Math.random() * 99),
+      );
+    }
   }
+
   $("#productModal").classList.remove("hidden");
 }
-
 $("#openNewProduct").addEventListener("click", () => openProductModal());
 $("#closeProduct").addEventListener("click", () =>
   $("#productModal").classList.add("hidden"),
@@ -399,30 +412,42 @@ $("#productSearch")?.addEventListener(
 $("#productForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   if (!currentUser) return toast("Please log in", "error");
+
   const f = e.target;
   const fd = new FormData(f);
+  const productName = fd.get("name").trim();
+
+  // 1. Safely grab the barcode
+  let barcodeVal = $("#productBarcodeInput")?.value.trim() || "";
+
+  // 2. If empty (user deleted it), generate one based on the name
+  if (!barcodeVal) {
+    barcodeVal = generateBarcode(productName, Math.floor(Math.random() * 99));
+  }
+
   const payload = {
     user_id: currentUser.id,
-    name: fd.get("name").trim(),
+    name: productName,
     unit: fd.get("unit").trim() || "pcs",
     cost_price: Number(fd.get("cost_price")),
     selling_price: Number(fd.get("selling_price")),
-    barcode: fd.get("barcode") || null, // <--- ADD THIS LINE
+    barcode: barcodeVal, // This is now saved to Supabase
   };
-  const barcodeVal = (fd.get("barcode") || "").trim();
-  if (barcodeVal) payload.barcode = barcodeVal;
 
   const editId = fd.get("id");
   let error;
+
   if (editId) {
     ({ error } = await db.from("products").update(payload).eq("id", editId));
   } else {
     ({ error } = await db.from("products").insert(payload));
   }
+
   if (error) {
     toast("Save failed: " + error.message, "error");
     return;
   }
+
   toast(editId ? "Product updated" : "Product added");
   $("#productModal").classList.add("hidden");
   await loadProducts();
@@ -723,7 +748,7 @@ async function generateReceiptPDF(txn) {
 
   doc.setFontSize(22);
   doc.setFont("helvetica", "bold");
-  doc.text("Elias Commucations", 40, 60);
+  doc.text("Elias Communications", 40, 60);
 
   doc.setFontSize(11);
   doc.setFont("helvetica", "normal");
