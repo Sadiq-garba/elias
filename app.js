@@ -289,117 +289,79 @@ function renderProductDatalist() {
     .join("");
 }
 
+// --- Debounce helper (add near top, after money()) ---
+function debounce(fn, delay = 180) {
+  let t;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn.apply(this, args), delay);
+  };
+}
+
+// --- Rewrite renderProductTable ---
 function renderProductTable() {
   const tbody = $("#productTable tbody");
   if (!tbody) return;
 
-  const q = ($("#productSearch")?.value || "").toLowerCase();
-  const list = productsCache.filter((p) => p.name.toLowerCase().includes(q));
+  const q = ($("#productSearch")?.value || "").trim().toLowerCase();
+  const list = q
+    ? productsCache.filter((p) => p.name.toLowerCase().includes(q))
+    : productsCache;
 
-  tbody.innerHTML = "";
-
+  // Build all rows as a single HTML string, then set once
+  let rows = "";
   if (!list.length) {
-    tbody.innerHTML =
+    rows =
       '<tr><td colspan="6" style="text-align:center;color:#94a3b8;">No products found</td></tr>';
-    updateInventorySummary([]);
-    return;
-  }
+  } else {
+    for (const p of list) {
+      const margin = p.selling_price - p.cost_price;
+      const stock = Number(p.unit) || 0;
 
-  list.forEach((p) => {
-    const margin = p.selling_price - p.cost_price;
-    const stock = p.unit || 0; // Using 'unit' column as stock
+      let stockDisplay;
+      if (stock === 0) {
+        stockDisplay = `<span style="background:#fee2e2;color:#b91c1c;padding:4px 8px;border-radius:4px;font-weight:600;font-size:12px;">Out of Stock</span>`;
+      } else if (stock <= 5) {
+        stockDisplay = `<span style="background:#fef3c7;color:#92400e;padding:4px 8px;border-radius:4px;font-weight:600;font-size:12px;">Low: ${stock}</span>`;
+      } else {
+        stockDisplay = `<span style="background:#dcfce7;color:#166534;padding:4px 8px;border-radius:4px;font-weight:600;font-size:12px;">${stock} pcs</span>`;
+      }
 
-    // Color code the stock level
-    let stockDisplay = "";
-    if (stock === 0) {
-      stockDisplay = `<span style="background:#fee2e2; color:#b91c1c; padding:4px 8px; border-radius:4px; font-weight:600; font-size:12px;">Out of Stock</span>`;
-    } else if (stock <= 5) {
-      stockDisplay = `<span style="background:#fef3c7; color:#92400e; padding:4px 8px; border-radius:4px; font-weight:600; font-size:12px;">Low: ${stock}</span>`;
-    } else {
-      stockDisplay = `<span style="background:#dcfce7; color:#166534; padding:4px 8px; border-radius:4px; font-weight:600; font-size:12px;">${stock} pcs</span>`;
+      rows += `<tr>
+        <td><strong>${escapeHtml(p.name)}</strong></td>
+        <td>${stockDisplay}</td>
+        <td>${money(p.cost_price)}</td>
+        <td>${money(p.selling_price)}</td>
+        <td class="text-green">${money(margin)}</td>
+        <td>
+          <button class="btn-edit" data-id="${p.id}">Edit</button>
+          <button class="btn-del" data-id="${p.id}">Delete</button>
+        </td>
+      </tr>`;
     }
+  }
+  tbody.innerHTML = rows;
 
-    tbody.innerHTML += `<tr>
-      <td><strong>${escapeHtml(p.name)}</strong></td>
-      <td>${stockDisplay}</td>
-      <td>${money(p.cost_price)}</td>
-      <td>${money(p.selling_price)}</td>
-      <td class="text-green">${money(margin)}</td>
-      <td>
-        <button class="btn-edit" data-id="${p.id}">Edit</button>
-        <button class="btn-del" data-id="${p.id}">Delete</button>
-      </td>
-    </tr>`;
-  });
-
-  // Update the summary cards at the top
+  // Inventory summary uses the FULL list, not filtered — only update when data changes
   updateInventorySummary(productsCache);
 
-  // Attach listeners
-  $$("#productTable .btn-edit").forEach((b) =>
-    b.addEventListener("click", () =>
-      openProductModal(productsCache.find((p) => p.id === b.dataset.id)),
-    ),
-  );
-  $$("#productTable .btn-del").forEach((b) =>
-    b.addEventListener("click", async () => {
-      if (!confirm("Delete this product?")) return;
-      const { error } = await db
-        .from("products")
-        .delete()
-        .eq("id", b.dataset.id);
-      if (error) {
-        toast(error.message, "error");
-        return;
-      }
-      toast("Product deleted");
-      await loadProducts();
-    }),
-  );
+  // Event delegation — attach ONCE to tbody, never per-button
+  // (Moved to one-time setup below)
 
+  applyProfitVisibility();
+}
+
+// --- Centralized profit visibility toggling (was duplicated) ---
+function applyProfitVisibility() {
   const hideStyle = isProfitRevealed ? "" : "none";
-
-  // Hide/Show table headers (Cost, Profit, Actions)
   [3, 5, 6].forEach((n) => {
     $$(`#productTable th:nth-child(${n})`).forEach(
       (el) => (el.style.display = hideStyle),
     );
-  });
-
-  // Hide/Show table cells (Cost, Profit, Actions)
-  [3, 5, 6].forEach((n) => {
     $$(`#productTable td:nth-child(${n})`).forEach(
       (el) => (el.style.display = hideStyle),
     );
   });
-}
-// NEW: Calculate and show inventory totals
-// NEW: Calculate and show inventory totals
-// NEW: Calculate and show inventory totals
-// NEW: Calculate and show inventory totals
-function updateInventorySummary(products) {
-  let totalItems = 0;
-  let totalCost = 0;
-  let lowStockCount = 0;
-
-  products.forEach((p) => {
-    // Force the stock to be a number, default to 0 if it's empty
-    const stock = Number(p.unit) || 0;
-
-    // Add the stock to the total
-    totalItems += stock;
-
-    // Force cost price to be a number
-    const cost = Number(p.cost_price) || 0;
-    totalCost += stock * cost;
-
-    if (stock <= 5) lowStockCount++;
-  });
-
-  // Display the result
-  $("#invTotalItems").textContent = totalItems.toLocaleString();
-  $("#invTotalValue").textContent = money(totalCost);
-  $("#invLowStock").textContent = lowStockCount;
 }
 
 function openProductModal(product = null) {
@@ -426,7 +388,10 @@ $("#closeProduct").addEventListener("click", () =>
 $("#cancelProduct").addEventListener("click", () =>
   $("#productModal").classList.add("hidden"),
 );
-$("#productSearch")?.addEventListener("input", renderProductTable);
+$("#productSearch")?.addEventListener(
+  "input",
+  debounce(renderProductTable, 150),
+);
 
 $("#productForm").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -569,7 +534,8 @@ async function loadTransactions() {
     b.addEventListener("click", () => openReceipt(b.dataset.id)),
   );
 }
-$("#txnSearch")?.addEventListener("input", loadTransactions);
+$("#txnSearch")?.addEventListener("input", debounce(loadTransactions, 250));
+
 $("#txnDate")?.addEventListener("change", loadTransactions);
 
 // ========== REPORTS ==========
