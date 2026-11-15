@@ -281,6 +281,8 @@ async function loadProducts() {
   productsCache = data || [];
   renderProductDatalist();
   renderProductTable();
+
+  updateInventorySummary(productsCache);
 }
 
 function renderProductDatalist() {
