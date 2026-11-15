@@ -346,7 +346,7 @@ function renderProductTable() {
   tbody.innerHTML = rows;
 
   // Inventory summary uses the FULL list, not filtered — only update when data changes
-  updateInventorySummary(productsCache);
+  //updateInventorySummary(productsCache);
 
   // Event delegation — attach ONCE to tbody, never per-button
   // (Moved to one-time setup below)
@@ -1588,3 +1588,41 @@ $("#revealProfitBtn")?.addEventListener("click", () => {
     toast("Incorrect PIN", "error");
   }
 });
+
+// ========== PRODUCT TABLE EVENT DELEGATION (EDIT & DELETE) ==========
+document
+  .querySelector("#productTable tbody")
+  ?.addEventListener("click", async (e) => {
+    // 1. Handle EDIT
+    const editBtn = e.target.closest(".btn-edit");
+    if (editBtn) {
+      const product = productsCache.find((p) => p.id === editBtn.dataset.id);
+      if (product) openProductModal(product);
+      return;
+    }
+
+    // 2. Handle DELETE
+    const delBtn = e.target.closest(".btn-del");
+    if (delBtn) {
+      if (!confirm("Delete this product?")) return;
+
+      // Disable button to prevent double-clicks while deleting
+      delBtn.disabled = true;
+      delBtn.textContent = "...";
+
+      const { error } = await db
+        .from("products")
+        .delete()
+        .eq("id", delBtn.dataset.id);
+
+      if (error) {
+        toast(error.message, "error");
+        delBtn.disabled = false;
+        delBtn.textContent = "Delete";
+        return;
+      }
+
+      toast("Product deleted");
+      await loadProducts(); // Refresh the table and summary
+    }
+  });
