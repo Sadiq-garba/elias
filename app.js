@@ -772,6 +772,43 @@ async function uploadReceiptAndGetUrl(txn) {
   return data.publicUrl;
 }
 
+$("#printReceiptBtn")?.addEventListener("click", async () => {
+  if (!currentReceiptTxn) return;
+
+  try {
+    toast("Preparing receipt for printing...");
+
+    // 1. Generate the PDF blob using your existing function
+    const blob = await generateReceiptPDF(currentReceiptTxn);
+
+    // 2. Create a temporary URL for the blob
+    const url = URL.createObjectURL(blob);
+
+    // 3. Create a hidden iframe to load and print the PDF
+    const iframe = document.createElement("iframe");
+    iframe.style.display = "none";
+    iframe.src = url;
+    document.body.appendChild(iframe);
+
+    // 4. Trigger the print dialog once the iframe loads
+    iframe.onload = () => {
+      setTimeout(() => {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+
+        // Clean up after printing
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+          URL.revokeObjectURL(url);
+        }, 2000);
+      }, 500);
+    };
+  } catch (err) {
+    console.error("Print Error:", err);
+    toast("Failed to print receipt: " + err.message, "error");
+  }
+});
+
 $("#sendWhatsapp").addEventListener("click", async () => {
   if (!currentReceiptTxn?.customer_phone) {
     toast("Customer phone number missing", "error");
