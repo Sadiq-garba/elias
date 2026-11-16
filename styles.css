@@ -9,7 +9,6 @@
   --radius: 14px;
   --shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --safe-top: env(safe-area-inset-top, 0px);
 }
 
 * {
@@ -21,6 +20,7 @@
 html,
 body {
   width: 100%;
+  max-width: 100vw;
   overflow-x: hidden;
 }
 
@@ -32,17 +32,9 @@ body {
   font-size: 14px;
   min-height: 100vh;
   -webkit-text-size-adjust: 100%;
-  -ms-text-size-adjust: 100%;
-  text-size-adjust: 100%;
-  -webkit-tap-highlight-color: transparent;
 }
 
-/* Better touch scrolling */
-* {
-  -webkit-overflow-scrolling: touch;
-}
-
-/* ===== AUTH / LOGIN SCREEN ===== */
+/* ===== AUTH ===== */
 .login-screen {
   position: fixed;
   inset: 0;
@@ -81,11 +73,11 @@ body {
   color: var(--text-soft);
 }
 .auth-form input {
-  padding: 12px 12px;
+  padding: 12px;
   border: 1px solid var(--border);
   border-radius: 10px;
   font-family: inherit;
-  font-size: 16px; /* prevent iOS zoom */
+  font-size: 16px;
   width: 100%;
 }
 .auth-form input:focus {
@@ -158,7 +150,7 @@ body {
 }
 .nav-item {
   display: block;
-  padding: 12px 12px;
+  padding: 12px;
   border-radius: 10px;
   color: #94a3b8;
   text-decoration: none;
@@ -188,13 +180,14 @@ body {
   color: #fff;
 }
 
-/* ===== MAIN ===== */
+/* ===== MAIN LAYOUT ===== */
 .main {
   margin-left: 220px;
   flex: 1;
   padding: 28px 32px;
   min-height: 100vh;
   width: calc(100% - 220px);
+  max-width: 100%;
   overflow-x: hidden;
 }
 .topbar {
@@ -249,7 +242,7 @@ textarea {
   border: 1px solid var(--border);
   border-radius: 10px;
   font-family: inherit;
-  font-size: 16px; /* prevent iOS zoom */
+  font-size: 16px;
   width: 100%;
   max-width: 100%;
 }
@@ -357,6 +350,7 @@ textarea {
   width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  max-width: 100vw;
 }
 .data-table {
   width: 100%;
@@ -480,11 +474,11 @@ textarea {
 }
 .modal-body input,
 .modal-body textarea {
-  padding: 12px 12px;
+  padding: 12px;
   border: 1px solid var(--border);
   border-radius: 10px;
   font-family: inherit;
-  font-size: 16px; /* prevent iOS zoom */
+  font-size: 16px;
   width: 100%;
 }
 .modal-body input:focus,
@@ -492,14 +486,6 @@ textarea {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
-}
-.live-total {
-  padding: 12px 14px;
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  border-radius: 12px;
-  color: #166534;
-  font-size: 13px;
 }
 .modal-foot {
   display: flex;
@@ -597,8 +583,17 @@ textarea {
     opacity: 1;
   }
 }
+.link-muted {
+  color: var(--text-soft);
+  font-size: 12.5px;
+  text-decoration: none;
+}
+.link-muted:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
 
-/* ===== SIDEBAR OVERLAY ===== */
+/* ===== MOBILE RESPONSIVENESS ===== */
 .sidebar-overlay {
   display: none;
   position: fixed;
@@ -611,9 +606,14 @@ textarea {
   display: block;
 }
 
-/* ===== RESPONSIVE BREAKPOINTS ===== */
 @media (max-width: 800px) {
-  /* Sidebar slide-out */
+  html,
+  body {
+    overflow-x: hidden !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+  }
+
   .sidebar {
     transform: translateX(-100%);
     transition: transform 0.3s ease;
@@ -625,15 +625,17 @@ textarea {
   .sidebar.open {
     transform: translateX(0);
   }
+
   .main {
-    margin-left: 0;
-    padding: 16px 14px;
-    width: 100%;
+    margin-left: 0 !important;
+    padding: 16px 14px !important;
+    width: 100% !important;
+    max-width: 100vw !important;
   }
   .menu-toggle {
     display: block;
   }
-  /* Topbar */
+
   .topbar {
     align-items: flex-start;
     gap: 8px;
@@ -649,18 +651,20 @@ textarea {
     margin-top: 8px;
     justify-content: space-between;
     gap: 8px;
+    display: flex;
+    flex-direction: column;
   }
   .topbar-actions input[type="date"] {
-    flex: 1 1 100%;
-    min-width: 0;
+    width: 100% !important;
   }
   .topbar-actions .btn {
-    flex: 1 1 auto;
-    width: auto;
+    width: 100% !important;
+    text-align: center;
+    justify-content: center;
   }
-  /* Stat grid 2x2 */
+
   .stat-grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr !important;
     gap: 10px;
   }
   .stat-card {
@@ -672,17 +676,19 @@ textarea {
   .stat-card span {
     font-size: 11px;
   }
-  /* Filter bar stack */
+
   .filter-bar {
-    flex-direction: column;
+    flex-direction: column !important;
     gap: 8px;
+    width: 100%;
   }
   .filter-bar input,
   .filter-bar button {
-    width: 100%;
-    min-width: 0;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
   }
-  /* Modals slide up from bottom */
+
   .modal-backdrop {
     align-items: flex-end;
     padding: 0;
@@ -691,7 +697,8 @@ textarea {
     max-height: 92vh;
     border-radius: 20px 20px 0 0;
     padding-bottom: var(--safe-bottom);
-    max-width: 100%;
+    max-width: 100vw !important;
+    width: 100% !important;
   }
   .modal-head {
     border-radius: 20px 20px 0 0;
@@ -708,127 +715,27 @@ textarea {
     width: 100%;
     flex: none;
   }
-  /* Reports grid */
+
   .report-grid {
     grid-template-columns: 1fr 1fr;
     padding: 16px;
     gap: 14px;
   }
-  /* Data tables keep horizontal scroll */
+
+  .table-responsive {
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
   .data-table {
-    min-width: 540px;
+    min-width: 600px;
   }
-  .data-table th,
-  .data-table td {
-    padding: 10px 12px;
-    font-size: 12px;
-  }
-  /* Buttons in action bars */
-  .btn-primary {
-    padding: 10px 12px;
-    font-size: 13px;
-  }
-  .btn-edit,
-  .btn-del,
-  .btn-receipt {
-    padding: 6px 8px;
-    font-size: 11px;
-  }
-  /* Toast on mobile */
+
   #toastStack {
     bottom: 16px;
     right: 16px;
     left: 16px;
     max-width: none;
   }
-  .toast {
-    text-align: center;
-  }
-}
-
-/* Extra small phones (iPhone SE, iPhone 12 mini, etc.) */
-@media (max-width: 390px) {
-  .stat-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-  }
-  .stat-card {
-    padding: 12px 10px;
-  }
-  .stat-card strong {
-    font-size: 15px;
-  }
-  .stat-card span {
-    font-size: 10px;
-  }
-  .main {
-    padding: 12px 10px;
-  }
-  .topbar h1 {
-    font-size: 17px;
-  }
-  .subtitle {
-    font-size: 12px;
-  }
-  .modal-body {
-    padding: 14px;
-  }
-  .report-grid {
-    grid-template-columns: 1fr 1fr;
-    padding: 12px;
-    gap: 10px;
-  }
-  .report-grid strong {
-    font-size: 16px;
-  }
-  .login-card {
-    padding: 24px 20px;
-  }
-  .data-table {
-    min-width: 480px;
-  }
-}
-
-/* Fix for iPhone X and newer with notch */
-@supports (padding: max(0px)) {
-  .sidebar {
-    padding-top: max(24px, env(safe-area-inset-top));
-    padding-bottom: max(24px, env(safe-area-inset-bottom));
-  }
-  .login-screen {
-    padding-top: max(20px, env(safe-area-inset-top));
-    padding-bottom: max(20px, env(safe-area-inset-bottom));
-  }
-  #toastStack {
-    bottom: max(24px, env(safe-area-inset-bottom));
-    right: max(24px, env(safe-area-inset-right));
-    left: auto;
-  }
-  @media (max-width: 800px) {
-    #toastStack {
-      bottom: max(16px, env(safe-area-inset-bottom));
-      right: max(16px, env(safe-area-inset-right));
-      left: max(16px, env(safe-area-inset-left));
-    }
-  }
-}
-
-/* Prevent body scroll when sidebar open */
-body.sidebar-open {
-  overflow: hidden;
-}
-
-/* Datalist fix */
-datalist {
-  display: none;
-}
-
-.link-muted {
-  color: var(--text-soft);
-  font-size: 12.5px;
-  text-decoration: none;
-}
-.link-muted:hover {
-  color: var(--primary);
-  text-decoration: underline;
 }
