@@ -745,31 +745,31 @@ $("#closeReceipt").addEventListener("click", () =>
 async function generateReceiptPDF(txn) {
   const { jsPDF } = window.jspdf;
 
-  // POS thermal printer dimensions (58mm = ~164pt, 80mm = ~226pt width)
-  // Using 80mm width (most common for POS), receipt length varies
-  const doc = new jsPDF({
-    unit: "pt",
-    format: [226, 500], // 80mm width, ~176mm height (custom length)
-  });
-
-  const pageWidth = 226; // 80mm in points
-  const margin = 12;
+  // 80mm POS = 226pt wide. Make height dynamic so nothing is cut.
+  const pageWidth = 226;
+  const margin = 10;
   const centerX = pageWidth / 2;
-  let y = 20;
+  const usableWidth = pageWidth - margin * 2; // 206pt
 
-  // ---- Store Header ----
-  doc.setFontSize(16);
+  // Estimate height so long names don't get cut — generous buffer
+  const doc = new jsPDF({ unit: "pt", format: [pageWidth, 700] });
+
+  let y = 18;
+
+  // ---- Header (centered) ----
+  doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
+  doc.setTextColor(0);
   doc.text("Elias Communications", centerX, y, { align: "center" });
-  y += 18;
+  y += 16;
 
-  doc.setFontSize(9);
+  doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(100);
+  doc.setTextColor(90);
   doc.text("Sales Receipt", centerX, y, { align: "center" });
-  y += 14;
+  y += 16;
 
-  // ---- Receipt Info ----
+  // ---- Receipt meta (left-aligned, wrapped) ----
   doc.setFontSize(8);
   doc.setTextColor(0);
   doc.text(`Receipt #: ${txn.id.slice(0, 8)}`, margin, y);
@@ -778,8 +778,12 @@ async function generateReceiptPDF(txn) {
   y += 11;
 
   if (txn.customer_name) {
-    doc.text(`Customer: ${txn.customer_name}`, margin, y);
-    y += 11;
+    const lines = doc.splitTextToSize(
+      `Customer: ${txn.customer_name}`,
+      usableWidth,
+    );
+    doc.text(lines, margin, y);
+    y += lines.length * 10;
   }
   if (txn.customer_phone) {
     doc.text(`Phone: ${txn.customer_phone}`, margin, y);
@@ -788,65 +792,68 @@ async function generateReceiptPDF(txn) {
 
   // ---- Divider ----
   y += 4;
-  doc.setDrawColor(180);
+  doc.setDrawColor(170);
   doc.setLineWidth(0.5);
   doc.line(margin, y, pageWidth - margin, y);
   y += 12;
 
-  // ---- Item Table Headers ----
-  doc.setFontSize(8);
+  // ---- Column X positions (right-aligned anchors) ----
+  const colQtyX = pageWidth - margin - 70; // qty right edge
+  const colPriceX = pageWidth - margin - 38; // price right edge
+  const colTotalX = pageWidth - margin; // total right edge
+
+  // ---- Headers ----
+  doc.setFontSize(7.5);
   doc.setFont("helvetica", "bold");
   doc.text("Item", margin, y);
-  doc.text("Qty", pageWidth - 90, y, { align: "right" });
-  doc.text("Price", pageWidth - 50, y, { align: "right" });
-  doc.text("Total", pageWidth - margin, y, { align: "right" });
-  y += 12;
+  doc.text("Qty", colQtyX, y, { align: "right" });
+  doc.text("Price", colPriceX, y, { align: "right" });
+  doc.text("Total", colTotalX, y, { align: "right" });
+  y += 11;
 
-  // ---- Item Row ----
+  // ---- Item row (name wraps within left column) ----
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
 
-  // Wrap long product names
-  const productName = String(txn.product_name);
-  const maxWidth = 90;
-  const splitName = doc.splitTextToSize(productName, maxWidth);
+  const nameColumnWidth = colQtyX - margin - 8; // leave gap before qty
+  const nameLines = doc.splitTextToSize(
+    String(txn.product_name),
+    nameColumnWidth,
+  );
 
-  doc.text(splitName, margin, y);
-  doc.text(String(txn.quantity), pageWidth - 90, y, { align: "right" });
-  doc.text(Number(txn.selling_price).toFixed(2), pageWidth - 50, y, {
+  doc.text(nameLines, margin, y);
+  doc.text(String(txn.quantity), colQtyX, y, { align: "right" });
+  doc.text(Number(txn.selling_price).toFixed(2), colPriceX, y, {
     align: "right",
   });
-  doc.text(Number(txn.total_amount).toFixed(2), pageWidth - margin, y, {
+  doc.text(Number(txn.total_amount).toFixed(2), colTotalX, y, {
     align: "right",
   });
 
-  y += splitName.length * 10 + 4;
+  y += nameLines.length * 10 + 4;
 
   // ---- Divider ----
-  doc.setDrawColor(180);
+  doc.setDrawColor(170);
   doc.line(margin, y, pageWidth - margin, y);
   y += 14;
 
-  // ---- Total ----
+  // ---- Total (centered label, right value) ----
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
   doc.text("TOTAL:", margin, y);
-  doc.text(
-    `NGN ${Number(txn.total_amount).toLocaleString()}`,
-    pageWidth - margin,
-    y,
-    { align: "right" },
-  );
-  y += 20;
+  doc.text(`NGN ${Number(txn.total_amount).toLocaleString()}`, colTotalX, y, {
+    align: "right",
+  });
+  y += 22;
 
-  // ---- Footer ----
-  doc.setDrawColor(180);
+  // ---- Footer (centered) ----
+  doc.setDrawColor(170);
   doc.line(margin, y, pageWidth - margin, y);
   y += 14;
 
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(100);
+  doc.setTextColor(90);
   doc.text("Thank you for your purchase!", centerX, y, { align: "center" });
   y += 11;
   doc.text("Powered by Elias Communications", centerX, y, { align: "center" });
