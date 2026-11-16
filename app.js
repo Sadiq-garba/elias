@@ -760,7 +760,7 @@ async function generateReceiptPDF(txn) {
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(0);
-  doc.text("Elias Visble Communications", centerX, y, { align: "center" });
+  doc.text("Elias Visible Communications", centerX, y, { align: "center" });
   y += 16;
 
   doc.setFontSize(8);
@@ -856,7 +856,7 @@ async function generateReceiptPDF(txn) {
   doc.setTextColor(90);
   doc.text("Thank you for your purchase!", centerX, y, { align: "center" });
   y += 11;
-  doc.text("Powered by Elias Communications", centerX, y, { align: "center" });
+  doc.text("Powered by AG tech", centerX, y, { align: "center" });
 
   return doc.output("blob");
 }
