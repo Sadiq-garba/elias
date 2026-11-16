@@ -760,7 +760,7 @@ async function generateReceiptPDF(txn) {
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(0);
-  doc.text("Elias Communications", centerX, y, { align: "center" });
+  doc.text("Elias Visble Communications", centerX, y, { align: "center" });
   y += 16;
 
   doc.setFontSize(8);
