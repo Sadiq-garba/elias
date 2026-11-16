@@ -744,44 +744,112 @@ $("#closeReceipt").addEventListener("click", () =>
 
 async function generateReceiptPDF(txn) {
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit: "pt", format: "a4" });
 
-  doc.setFontSize(22);
+  // POS thermal printer dimensions (58mm = ~164pt, 80mm = ~226pt width)
+  // Using 80mm width (most common for POS), receipt length varies
+  const doc = new jsPDF({
+    unit: "pt",
+    format: [226, 500], // 80mm width, ~176mm height (custom length)
+  });
+
+  const pageWidth = 226; // 80mm in points
+  const margin = 12;
+  const centerX = pageWidth / 2;
+  let y = 20;
+
+  // ---- Store Header ----
+  doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
-  doc.text("Elias Communications", 40, 60);
+  doc.text("Elias Communications", centerX, y, { align: "center" });
+  y += 18;
 
-  doc.setFontSize(11);
+  doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(120);
-  doc.text("Sales Receipt", 40, 82);
-  doc.text("Receipt #: " + txn.id.slice(0, 8), 40, 98);
-  doc.text("Date: " + txn.transaction_date, 40, 114);
+  doc.setTextColor(100);
+  doc.text("Sales Receipt", centerX, y, { align: "center" });
+  y += 14;
 
-  doc.setDrawColor(220);
-  doc.line(40, 130, 555, 130);
+  // ---- Receipt Info ----
+  doc.setFontSize(8);
   doc.setTextColor(0);
-  doc.setFontSize(12);
-  doc.text("Item", 40, 154);
-  doc.text("Qty", 350, 154);
-  doc.text("Price", 420, 154);
-  doc.text("Total", 490, 154);
+  doc.text(`Receipt #: ${txn.id.slice(0, 8)}`, margin, y);
+  y += 11;
+  doc.text(`Date: ${txn.transaction_date}`, margin, y);
+  y += 11;
 
-  doc.setFontSize(11);
-  doc.text(String(txn.product_name), 40, 178);
-  doc.text(String(txn.quantity), 350, 178);
-  doc.text(Number(txn.selling_price).toFixed(2), 420, 178);
-  doc.text(Number(txn.total_amount).toFixed(2), 490, 178);
+  if (txn.customer_name) {
+    doc.text(`Customer: ${txn.customer_name}`, margin, y);
+    y += 11;
+  }
+  if (txn.customer_phone) {
+    doc.text(`Phone: ${txn.customer_phone}`, margin, y);
+    y += 11;
+  }
 
-  doc.line(40, 200, 555, 200);
-  doc.setFontSize(13);
+  // ---- Divider ----
+  y += 4;
+  doc.setDrawColor(180);
+  doc.setLineWidth(0.5);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 12;
+
+  // ---- Item Table Headers ----
+  doc.setFontSize(8);
   doc.setFont("helvetica", "bold");
-  doc.text("Total:", 420, 224);
-  doc.text("NGN " + Number(txn.total_amount).toLocaleString(), 490, 224);
+  doc.text("Item", margin, y);
+  doc.text("Qty", pageWidth - 90, y, { align: "right" });
+  doc.text("Price", pageWidth - 50, y, { align: "right" });
+  doc.text("Total", pageWidth - margin, y, { align: "right" });
+  y += 12;
 
-  doc.setFontSize(10);
+  // ---- Item Row ----
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(120);
-  doc.text("Thank you for your purchase!", 40, 270);
+  doc.setFontSize(8);
+
+  // Wrap long product names
+  const productName = String(txn.product_name);
+  const maxWidth = 90;
+  const splitName = doc.splitTextToSize(productName, maxWidth);
+
+  doc.text(splitName, margin, y);
+  doc.text(String(txn.quantity), pageWidth - 90, y, { align: "right" });
+  doc.text(Number(txn.selling_price).toFixed(2), pageWidth - 50, y, {
+    align: "right",
+  });
+  doc.text(Number(txn.total_amount).toFixed(2), pageWidth - margin, y, {
+    align: "right",
+  });
+
+  y += splitName.length * 10 + 4;
+
+  // ---- Divider ----
+  doc.setDrawColor(180);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 14;
+
+  // ---- Total ----
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.text("TOTAL:", margin, y);
+  doc.text(
+    `NGN ${Number(txn.total_amount).toLocaleString()}`,
+    pageWidth - margin,
+    y,
+    { align: "right" },
+  );
+  y += 20;
+
+  // ---- Footer ----
+  doc.setDrawColor(180);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 14;
+
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100);
+  doc.text("Thank you for your purchase!", centerX, y, { align: "center" });
+  y += 11;
+  doc.text("Powered by Elias Communications", centerX, y, { align: "center" });
 
   return doc.output("blob");
 }
