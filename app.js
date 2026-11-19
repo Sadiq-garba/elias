@@ -694,8 +694,8 @@ $("#txnForm").addEventListener("submit", async (e) => {
       quantity: item.quantity,
       cost_price: item.cost_price,
       selling_price: item.selling_price,
-      customer_name,
-      customer_phone,
+      // customer_name,
+      // customer_phone,
       customer_email,
       transaction_date: todayISO(),
     });
@@ -786,7 +786,7 @@ async function generateReceiptPDF(txn) {
   //   y += lines.length * 10;
   // }
   if (txn.customer_phone) {
-    doc.text(`Call Us: 0703 335 9956`, margin, y);
+    doc.text(`Phone: 0703 335 9956`, margin, y);
     y += 11;
   }
 
