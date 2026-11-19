@@ -669,8 +669,8 @@ $("#txnForm").addEventListener("submit", async (e) => {
     return toast("Cart is empty — scan a product first.", "error");
 
   const fd = new FormData(e.target);
-  const customer_name = (fd.get("customer_name") || "").trim() || null;
-  const customer_phone = (fd.get("customer_phone") || "").trim() || null;
+  // const customer_name = (fd.get("customer_name") || "").trim() || null;
+  // const customer_phone = (fd.get("customer_phone") || "").trim() || null;
   const customer_email = (fd.get("customer_email") || "").trim() || null;
 
   // 1. Validate stock for every line
@@ -777,16 +777,16 @@ async function generateReceiptPDF(txn) {
   doc.text(`Date: ${txn.transaction_date}`, margin, y);
   y += 11;
 
-  if (txn.customer_name) {
-    const lines = doc.splitTextToSize(
-      `Customer: ${txn.customer_name}`,
-      usableWidth,
-    );
-    doc.text(lines, margin, y);
-    y += lines.length * 10;
-  }
+  // if (txn.customer_name) {
+  //   const lines = doc.splitTextToSize(
+  //     `Customer: ${txn.customer_name}`,
+  //     usableWidth,
+  //   );
+  //   doc.text(lines, margin, y);
+  //   y += lines.length * 10;
+  // }
   if (txn.customer_phone) {
-    doc.text(`Phone: ${txn.customer_phone}`, margin, y);
+    doc.text(`Call Us: 0703 335 9956`, margin, y);
     y += 11;
   }
 
