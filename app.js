@@ -669,8 +669,6 @@ $("#txnForm").addEventListener("submit", async (e) => {
     return toast("Cart is empty — scan a product first.", "error");
 
   const fd = new FormData(e.target);
-  // const customer_name = (fd.get("customer_name") || "").trim() || null;
-  // const customer_phone = (fd.get("customer_phone") || "").trim() || null;
   const customer_email = (fd.get("customer_email") || "").trim() || null;
 
   // 1. Validate stock for every line
@@ -686,20 +684,27 @@ $("#txnForm").addEventListener("submit", async (e) => {
   }
 
   // 2. Insert one transaction row per cart item + reduce stock
+  let firstSavedTxn = null; // <-- NEW: remember the first saved row
+
   for (const item of saleCart) {
-    const { error: txnErr } = await db.from("sales_transactions").insert({
-      user_id: currentUser.id,
-      product_id: item.product_id,
-      product_name: item.product_name,
-      quantity: item.quantity,
-      cost_price: item.cost_price,
-      selling_price: item.selling_price,
-      // customer_name,
-      // customer_phone,
-      customer_email,
-      transaction_date: todayISO(),
-    });
+    const { data: inserted, error: txnErr } = await db
+      .from("sales_transactions")
+      .insert({
+        user_id: currentUser.id,
+        product_id: item.product_id,
+        product_name: item.product_name,
+        quantity: item.quantity,
+        cost_price: item.cost_price,
+        selling_price: item.selling_price,
+        customer_email,
+        transaction_date: todayISO(),
+      })
+      .select()
+      .single(); // <-- NEW: return the inserted row so we get its id
+
     if (txnErr) return toast("Save failed: " + txnErr.message, "error");
+
+    if (!firstSavedTxn) firstSavedTxn = inserted; // <-- NEW
 
     const p = productsCache.find((x) => x.id === item.product_id);
     const newStock = (Number(p?.unit) || 0) - item.quantity;
@@ -711,12 +716,18 @@ $("#txnForm").addEventListener("submit", async (e) => {
       return toast("Stock update failed: " + stockErr.message, "error");
   }
 
+  // --- Everything below is your original flow, unchanged ---
   toast(`${saleCart.length} line(s) saved!`);
   clearCart();
   e.target.reset();
   $("#txnModal").classList.add("hidden");
   await loadProducts();
   loadDashboard();
+
+  // --- NEW: open the receipt modal for the saved sale ---
+  if (firstSavedTxn) {
+    await openReceipt(firstSavedTxn.id);
+  }
 });
 
 // ========== RECEIPT + WHATSAPP ==========
