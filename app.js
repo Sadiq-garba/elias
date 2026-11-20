@@ -727,6 +727,10 @@ $("#txnForm").addEventListener("submit", async (e) => {
   // --- NEW: open the receipt modal for the saved sale ---
   if (firstSavedTxn) {
     await openReceipt(firstSavedTxn.id);
+
+    setTimeout(() => {
+      document.getElementById("printReceiptBtn")?.click();
+    }, 400);
   }
 });
 
